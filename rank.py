@@ -2,7 +2,8 @@ import argparse
 import json
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
+import asyncio
 
 import numpy as np
 import pandas as pd
@@ -13,10 +14,14 @@ from sentence_transformers import SentenceTransformer
 from sklearn.preprocessing import normalize
 from sklearn.metrics import ndcg_score
 from tqdm import tqdm
+import re
+import wandb
 
-
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+load_dotenv("../.env")
+client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+wandb_api_key = os.getenv("WANDB_API_KEY")
+if wandb_api_key:
+    wandb.login(key=wandb_api_key)
 LABEL_MAP = {
     "no value": 0,
     "potential value": 1,
@@ -58,212 +63,199 @@ def build_records(sent_json: Dict[str, Any]) -> pd.DataFrame:
         })
     return pd.DataFrame(rows)
 
-MAX_CHARS = 1200
 BATCH_SIZE = 25
-
-def _gpt_label_single_batch(df_batch: pd.DataFrame, type: str) -> pd.DataFrame:
+async def _gpt_label_single_batch(df_batch: pd.DataFrame, eval_type: str, term: str, system_prompt: str, raw_statute: str) -> pd.DataFrame:
+    
     records = [
-        {"sentence_id": str(row["sentence_id"]), "text": str(row["text"])[:MAX_CHARS]}
+        {"sentence_id": str(row["sentence_id"]), "text": str(row["text"])}
         for _, row in df_batch.iterrows()
     ]
-    if type == "zero_shot":
-        system_prompt = """
-        You are an expert legal text annotator. Your task is to evaluate each sentence for its usefulness in supporting legal argumentation about the meaning of a statutory or regulatory term (the “phrase of interest”). For each sentence, assign BOTH: (1) a categorical label in {"no value", "potential value", "certain value", "high value"} and (2) a numeric score in {0, 1, 2, 3} where 0 = no value, 1 = potential value, 2 = certain value, 3 = high value. Be consistent and conservative. If a sentence is clearly irrelevant, assign “no value”/0. Return ONLY valid JSON in the exact format:
-        {
-        "items": [
-            {"sentence_id": "...", "label": "...", "label_score": ...},
-            ...
-        ]
-        }
-
-        Follow these rules:
-
-        A sentence is valuable only if it contributes information relevant to understanding or arguing about the meaning of the phrase of interest. Evaluate each sentence using this workflow:
-
-        STEP 1: Determine whether the sentence provides information beyond what is already stated in the source statutory provision. If No, label NO VALUE (0) and stop. If Yes, continue.
-
-        STEP 2: Determine whether the phrase of interest is used with a different meaning than in the source provision. If Yes, continue to Step 3. If No, skip to Step 4.
-
-        STEP 3: If the meaning differs, determine whether the meaning in the sentence is still related to the meaning in the provision. If unrelated, label NO VALUE (0). If related, assign POTENTIAL VALUE (1) or CERTAIN VALUE (2) depending on strength of the relation. Stop.
-
-        STEP 4: Determine whether the sentence explicitly elaborates the meaning of the phrase of interest. Explicit elaboration includes: definition; explanation; positive example; negative example; subsumption to a broader category; contrast against a broader category; assignment of features; exclusion of features. If Yes, go to Step 5. If No, go to Step 7.
-
-        STEP 5: If the sentence is attributed to a person with a personal stake in the outcome (e.g., a party, witness), assign CERTAIN VALUE (2). If attributed to an objective source (judge, court, neutral authority), assign HIGH VALUE (3). Stop.
-
-        STEP 7: Determine whether the sentence provides useful context that allows inferring aspects of the meaning (implicit explanation, implicit example, implicit feature assignment or exclusion). If No, assign POTENTIAL VALUE (1) and stop. If Yes, go to Step 8.
-
-        STEP 8: If the sentence with implicit context is attributed to a person with a personal interest, assign POTENTIAL VALUE (1). If attributed to a neutral source, assign CERTAIN VALUE (2). Stop.
-
-        Additional clarifications:
-        - Sentences that merely restate or paraphrase the statutory provision, or provide headings or boilerplate references, do NOT provide additional information and must be labeled NO VALUE.
-        - The same phrase may have different meanings across statutes or domains; if understanding one meaning does not help understand the statutory meaning, the uses are unrelated and the sentence has NO VALUE.
-        - Explicit elaboration directly defines, explains, clarifies, contrasts, or assigns features to the phrase of interest. Implicit elaboration provides facts from which such features can be inferred.
-        - Statements by parties, witnesses, or other interested individuals are less objective and therefore always lower-value than statements from courts or neutral authorities.
-
-        Return only valid JSON following the structure above.
-        """
-    elif type == "few_shot":
-        system_prompt = """You are an expert legal text annotator. Your task is to evaluate each sentence for its usefulness in supporting legal argumentation about the meaning of a statutory or regulatory term (the “phrase of interest”). For each sentence, assign BOTH: (1) a categorical label in {"no value", "potential value", "certain value", "high value"} and (2) a numeric score in {0, 1, 2, 3} where 0 = no value, 1 = potential value, 2 = certain value, 3 = high value. Be consistent and conservative. If a sentence is clearly irrelevant, assign “no value”/0. Return ONLY valid JSON in the exact format:
-        {
-        "items": [
-            {"sentence_id": "...", "label": "...", "label_score": ...},
-            ...
-        ]
-        }
-
-        Statutory and regulatory provisions are difficult to understand because legislators must write rules that apply broadly and abstractly. Lawyers therefore often argue about the meaning of vague or open-textured terms. Past uses of the term from case law, legislative history, or secondary sources may be crucial in supporting or challenging a particular interpretation. Not all sentences mentioning the term are equally useful. Your task is to determine whether each sentence contributes information relevant to understanding or arguing about the meaning of the phrase of interest.
-
-        Here is an illustrative statutory excerpt:
-        “Enterprise” means the related activities performed [...] by any person or persons for a common business purpose [...]
-
-        Examples of highly useful sentences for argumentation about the meaning:
-        - “The fact of common ownership of the two businesses clearly is not sufficient to establish a common business purpose.”
-        - “The profit motive is a common business purpose if shared.”
-
-        Examples of sentences that are less useful:
-        - “Because the activities of the two businesses are not related and there is no common business purpose, the question of common control is not determinative.”
-        - “The defendants weakly challenge the common business purpose conclusion.”
-
-        Your job is to classify sentences based on how useful they are for argumentation about meaning. Use the decision procedure below.
-
-        STEP 1: Determine whether the sentence provides information beyond what is already stated in the source statutory provision. Sentences that only repeat or paraphrase the provision, or that contain only headings or citations, DO NOT add information. Example provision: “No vehicles are allowed in the park.” Examples that do NOT add information:
-        - “The provision states that: 'No vehicles are allowed in the park.'”
-        - “A vehicle is forbidden from entering the park.”
-        - “Motor Vehicles Inc. v. Jane Doe”
-        If the sentence does NOT add information → label NO VALUE (0). If it does, continue.
-
-        STEP 2: Determine whether the phrase of interest is used with a different meaning than in the source provision. Example provision: “No vehicles are allowed in the park.” Example different meaning:
-        - “Any autonomous vehicle is subject to the approval of the executive committee.”
-        Also, terms can have different meanings in different legal domains; “independent economic value” in copyright vs. trade secret law might differ. If meaning is different → Step 3. If same → Step 4.
-
-        STEP 3: If the meaning differs, determine whether it is still related. Examples:
-        Related but slightly different:
-        - “Any autonomous vehicle is subject to the approval of the executive committee.”
-        Unrelated:
-        - “A body is a vehicle for a soul.”
-        Rule of thumb: If understanding one meaning helps understand the other, they are related. If related → assign POTENTIAL VALUE (1) or CERTAIN VALUE (2). If unrelated → NO VALUE (0). Stop.
-
-        STEP 4: Determine whether the sentence explicitly elaborates the meaning of the phrase of interest. Explicit elaboration includes:
-
-        1. DEFINITION  
-        Examples:  
-        - “Any mechanical device used for transportation of people or goods is a vehicle.”  
-        - “FOIA request means a written request for agency records that reasonably describes the agency records sought…”
-
-        2. EXPLANATION  
-        Examples:  
-        - “A vehicle usually has wheels, engine and controls.”  
-        - “Likewise, activities are 'related' when they are part of a vertical structure such as the manufacturing, warehousing, and retailing of a product…”
-
-        3. POSITIVE EXAMPLE  
-        Examples:  
-        - “A car is a vehicle.”  
-        - “The Act defines 'record' as any item… containing an identifying number, symbol… such as a photograph.”
-
-        4. NEGATIVE EXAMPLE  
-        Examples:  
-        - “A stroller is not a vehicle.”  
-        - “Duty titles used in lieu of names were not 'identifying particulars'…”
-
-        5. SUBSUMPTION  
-        Examples:  
-        - “A car is a vehicle.”  
-        - “Duty titles may be 'identifying particulars' as used in the Privacy Act.”
-
-        6. CONTRAST  
-        Examples:  
-        - “Not every vehicle is a man-made object.”  
-        - “The duty titles do not qualify as identifying particulars.”
-
-        7. FEATURE ASSIGNMENT  
-        Examples:  
-        - “Some vehicles are fast.”  
-        - “The appellee pointed out that duty titles change over time.”
-
-        8. FEATURE EXCLUSION  
-        Examples:  
-        - “Some vehicles are not large.”  
-        - “Object code does not derive independent economic value from its secrecy.”
-
-        If explicit elaboration exists → Step 5. If not → Step 7.
-
-        STEP 5: Determine whether the sentence is attributed to a person who has a personal interest in the litigation outcome (e.g., a party or witness). Example of interested attribution:
-        - “The defendant claimed he did not break the rule since roller skates cannot be considered a vehicle.”
-        If attributed to an interested speaker → CERTAIN VALUE (2).  
-        If neutral (judge, court, expert) → HIGH VALUE (3).  
-        Stop.
-
-        STEP 7: Determine whether the sentence provides useful context from which elaboration could be inferred. Implicit elaboration examples:
-
-        Implicit EXPLANATION:  
-        - “The vehicle was stripped of its wheels, the engine, and all the controls.”
-
-        Implicit POSITIVE EXAMPLE:  
-        - “All the vehicles including the car were parked there.”
-
-        Implicit NEGATIVE EXAMPLE:  
-        - “Whereas all the vehicles had to be parked in front of the building, the stroller was allowed in.”
-
-        Implicit SUBSUMPTION or CONTRAST:  
-        - “We recognized the car among all the vehicles.”  
-        - “Whereas all the vehicles had to be parked in front of the building, the stroller was allowed in.”
-
-        Implicit FEATURE ASSIGNMENT:  
-        - “All the fast vehicles were already gone.”
-
-        Implicit FEATURE EXCLUSION:  
-        - “All the vehicles that were not large could enter the road.”
-
-        If no useful context → POTENTIAL VALUE (1). Stop.  
-        If useful context → Step 8.
-
-        STEP 8: Determine attribution for implicit context. If attributed to an interested person → POTENTIAL VALUE (1). If neutral → CERTAIN VALUE (2). Stop.
-
-        General attribution rule: Statements by parties, witnesses, or people with personal incentives are always less objective, and therefore yield reduced sentence value compared to statements by judges or courts.
-
-        Return only valid JSON following the exact structure above.
-        """
-    response = client.chat.completions.create(
+    user_content = {
+        "phrase_of_interest": term,
+        "raw_statute": raw_statute,
+        "sentences": records,
+    }
+    response = await client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": json.dumps(records)},
-        ],
-        response_format={"type": "json_object"},
+            {"role": "user", "content": json.dumps(user_content)},
+        ]
     )
 
     output_text = response.choices[0].message.content
-    gpt_labels = json.loads(output_text)
+    if output_text.startswith("```"):
+        # remove opening fence like ``` or ```json
+        output_text = re.sub(r"^```[a-zA-Z]*\n?", "", output_text)
+        # remove closing fence ```
+        output_text = re.sub(r"\n```$", "", output_text)
+    try:
+        gpt_labels = json.loads(output_text)
+        
+        # Handle wrapped responses: {"results": [...]} or {"items": [...]}
+        if isinstance(gpt_labels, dict):
+            # Try common wrapper keys
+            for key in ['results', 'items', 'data', 'labels', 'predictions', 'annotations']:
+                if key in gpt_labels and isinstance(gpt_labels[key], list):
+                    gpt_labels = gpt_labels[key]
+                    break
+            # If still a dict and not a list, it might be a single-item response
+            if isinstance(gpt_labels, dict) and 'sentence_id' not in gpt_labels:
+                print(f"WARNING: Unexpected GPT response format: {list(gpt_labels.keys())}")
+                print(f"Response preview: {str(output_text)[:300]}")
+                raise ValueError(f"GPT returned dict with keys {list(gpt_labels.keys())}, expected list or wrapped list")
+        
+        # Convert to DataFrame
+        df_gpt = pd.DataFrame(gpt_labels)
+        
+        # Validate required columns
+        if 'sentence_id' not in df_gpt.columns:
+            print(f"ERROR: Missing 'sentence_id' column")
+            print(f"Available columns: {df_gpt.columns.tolist()}")
+            print(f"Full GPT response: {output_text}")
+            raise KeyError(f"'sentence_id' column not found in GPT response")
+        
+        if 'label' not in df_gpt.columns:
+            print(f"ERROR: Missing 'label' column")
+            print(f"Available columns: {df_gpt.columns.tolist()}")
+            print(f"Full GPT response: {output_text}")
+            raise KeyError(f"'label' column not found in GPT response")
+        
+        # Process the data
+        df_gpt["sentence_id"] = df_gpt["sentence_id"].astype(str)
+        df_gpt["gpt_label_str"] = df_gpt["label"]
+        df_gpt["gpt_label_score"] = df_gpt["label"].map(LABEL_MAP)
+        
+        return df_gpt[["sentence_id", "gpt_label_str", "gpt_label_score"]]
+        
+    except json.JSONDecodeError as e:
+        print(f"ERROR: Failed to parse GPT response as JSON")
+        print(f"Response: {output_text}")
+        raise
+    except Exception as e:
+        print(f"ERROR processing GPT response: {e}")
+        print(f"Response: {output_text}")
+        raise
 
-    # Handle both {"items": [...]} and plain [...] just in case
-    if isinstance(gpt_labels, dict) and "items" in gpt_labels:
-        items = gpt_labels["items"]
+async def gpt_label_batch(df: pd.DataFrame, eval_type: str, term: str, raw_statute: str) -> pd.DataFrame:
+    # Load system prompt once
+    if eval_type == "zero_shot":
+        prompt_path = "system_prompts/zero_shot.txt"
+    elif eval_type == "few_shot":
+        prompt_path = "system_prompts/few_shot.txt"  # make sure this exists
     else:
-        items = gpt_labels
+        raise ValueError(f"Unknown eval type for GPT labeling: {eval_type}")
 
-    df_gpt = pd.DataFrame(items)
-    df_gpt["sentence_id"] = df_gpt["sentence_id"].astype(str)
-    df_gpt["gpt_label_str"] = df_gpt["label"]
-    df_gpt["gpt_label_score"] = df_gpt["label_score"]
-    return df_gpt[["sentence_id", "gpt_label_str", "gpt_label_score"]]
+    with open(prompt_path, "r", encoding="utf-8") as f:
+        system_prompt = f.read()
 
-def gpt_label_batch(df: pd.DataFrame, type: str) -> pd.DataFrame:
-    batches = []
-    for start in tqdm(range(0, len(df), BATCH_SIZE), desc="GPT batches", unit="batch"):
+    tasks = []
+    for start in range(0, len(df), BATCH_SIZE):
         sub = df.iloc[start:start + BATCH_SIZE]
-        batch_df = _gpt_label_single_batch(sub, type)
+        tasks.append(asyncio.create_task(_gpt_label_single_batch(sub, eval_type, term, system_prompt, raw_statute)))
+
+    # Run all batches concurrently
+    batches = []
+    for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="GPT batches", unit="batch"):
+        batch_df = await coro
         batches.append(batch_df)
+
     df_gpt = pd.concat(batches, ignore_index=True)
     return df_gpt
+
+def log_to_wandb(term: str, eval_type: str, df_st_sorted: pd.DataFrame, ndcg_scores: List[float], label_counts: Dict[str, int], confusion: pd.DataFrame):
+    """
+    Logs:
+      - config: term, type, num_sentences
+      - table: all ranked sentences + scores
+      - metrics: ndcg@10, ndcg@20, ndcg@40, ndcg@100
+    """
+    # Initialize run (customize project/name as you like)
+    wandb.init(
+        project="statutory-term-ndcg-eval",
+        config={
+            "term": term,
+            "type": eval_type,
+            "num_sentences": len(df_st_sorted),
+            "label_map": LABEL_MAP,
+            "label_counts": label_counts,
+            "confusion": confusion,
+        }
+    )
+
+    # Decide which column is the model score
+    if eval_type == "naive":
+        score_col = "similarity"
+    else:
+        score_col = "gpt_label_score"
+
+    table = wandb.Table(
+        columns=["rank", "sentence_id", "text", "label_score", "pred_score"]
+    )
+    # Convert confusion matrix to wandb.Table
+    desired_order = [
+        "no value",
+        "potential value",
+        "certain value",
+        "high value",
+    ]
+    
+    score_to_name = {v: k for (k, v) in LABEL_MAP.items()}
+
+    confusion.index = confusion.index.map(score_to_name)
+
+    sorted_confusion = confusion.reindex(
+        index=desired_order,
+        columns=desired_order,
+    )
+    confusion_table = wandb.Table(
+        columns=["true_label", "pred no value", "pred potential value", "pred certain value", "pred high value"]
+    )
+    for true_label, row in sorted_confusion.iterrows():
+        confusion_table.add_data(
+            true_label,
+            int(row.get("no value", 0)),
+            int(row.get("potential value", 0)),
+            int(row.get("certain value", 0)),
+            int(row.get("high value", 0)),
+        )
+    for rank, (_, row) in enumerate(df_st_sorted.iterrows(), start=1):
+        # Some rows might not have label_score if you later change filtering
+        label_score = float(row.get("label_score", -1))
+        pred_score = float(row.get(score_col, 0.0))
+        table.add_data(
+            rank,
+            str(row["sentence_id"]),
+            str(row["text"]),
+            label_score,
+            pred_score,
+        )
+
+    metrics = {
+        "ndcg@10": ndcg_scores[0] if len(ndcg_scores) > 0 else None,
+        "ndcg@20": ndcg_scores[1] if len(ndcg_scores) > 1 else None,
+        "ndcg@40": ndcg_scores[2] if len(ndcg_scores) > 2 else None,
+        "ndcg@100": ndcg_scores[3] if len(ndcg_scores) > 3 else None,
+    }
+
+    wandb.log({
+        "sentences": table,
+        "label_counts": label_counts,
+        "confusion": confusion_table,
+        **metrics,
+    })
+
+    wandb.finish()
 
 # Main
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sentences", default="independent_economic_value/independent_economic_value-sentence.json", help="Path to sentences json")
-    ap.add_argument("--provisions", default="provisions.json", help="Path to provisions json")
+    ap.add_argument("--sentences", default="sources/independent_economic_value/independent_economic_value-sentence.json", help="Path to sentences json")
+    ap.add_argument("--provisions", default="sources/provisions.json", help="Path to provisions json")
     ap.add_argument("--term", default="independent economic value", help="Provision key to use as query")
-    ap.add_argument("--topk", type=int, default=10, help="Top-K to print and evaluate")
     ap.add_argument("--type", default="naive", help ="naive | zero_shot | few_shot")
+    ap.add_argument("--log", default="false", help="Log to wandb")
+    ap.add_argument("--verbose", default="false", help="Verbose output")
     args = ap.parse_args()
 
     sent_path = Path(args.sentences)
@@ -285,7 +277,9 @@ def main():
 
     if args.term not in provisions:
         raise KeyError(f"Term '{args.term}' not found in provisions.json. Available keys: {list(provisions.keys())[:10]} ...")
-    
+    raw_statute = provisions[args.term]["raw"]
+    analyzed_statute = provisions[args.term]["analyzed"]
+
     ndcg_scores = []
     df_st_sorted = None
 
@@ -305,7 +299,7 @@ def main():
     
     if args.type == "zero_shot" or args.type == "few_shot":
         # Get GPT labels for each sentence
-        df_gpt = gpt_label_batch(df, args.type)
+        df_gpt = asyncio.run(gpt_label_batch(df, args.type, args.term, raw_statute))
         
         # Merge GPT labels back into the original df (which has text + human labels)
         df_merged = df.merge(df_gpt, on="sentence_id", how="left")
@@ -319,35 +313,35 @@ def main():
         df_eval["gpt_label_score"] = df_eval["gpt_label_score"].astype(float)
 
         # Sort by GPT's predicted relevance
+        y_true = np.array([df_eval["label_score"].values], dtype=float)
+        y_score = np.array([df_eval["gpt_label_score"].values], dtype=float)
+        
+        for i in [10, 20, 40, 100]:
+            ndcg_scores.append(ndcg_score(y_true, y_score, k=i))
         df_st_sorted = df_eval.sort_values("gpt_label_score", ascending=False).reset_index(drop=True)
 
-        # Prepare arrays for ndcg_score
-        y_true = np.array([df_st_sorted["label_score"].values], dtype=float)
-        y_score = np.array([df_st_sorted["gpt_label_score"].values], dtype=float)
-
-        # Make sure k doesn't exceed number of docs
-        for k in [10, 20, 40, 100]:
-            ndcg_scores.append(ndcg_score(y_true, y_score, k=k))
 
 
-
-        print(f"Top {args.topk} sentences")
-
-    topk = min(args.topk, len(df_st_sorted))
-
-    if args.type == "naive":
+    topk = 10
+    if args.type == "naive" and args.verbose == "true":
         for i, row in df_st_sorted.head(topk).iterrows():
             print(f"[{i+1:>2}] sim={row['similarity']:.4f}  rel={row['label_score']:<2}  | {row['text']}")
-    elif args.type == "zero_shot":
+    elif (args.type == "zero_shot" or args.type == "few_shot") and args.verbose == "true":
         for i, row in df_st_sorted.head(topk).iterrows():
             # use GPT’s predicted score as “sim”
             print(f"[{i+1:>2}] sim={row['gpt_label_score']:.4f}  rel={row['label_score']:<2}  | {row['text']}")
-    print("\nNDCG scores")
-    print(f"Method: {args.type}")
-    print(f"NDCG@{args.topk}: {ndcg_scores}")
-    
 
     
+    print(f"Method: {args.type} | Term: {args.term}")
+    for k, ndcg in zip([10, 20, 40, 100], ndcg_scores):
+        print(f"NDCG@{k}: {ndcg}")
+    
+    label_counts = df_st_sorted["gpt_label_str"].value_counts().to_dict()
+    confusion = pd.crosstab(df_st_sorted["label_score"], df_st_sorted["gpt_label_str"])
+
+    if df_st_sorted is not None and len(ndcg_scores) > 0 and args.log == "true":
+        log_to_wandb(args.term, args.type, df_st_sorted, ndcg_scores, label_counts, confusion)
+
 
 if __name__ == "__main__":
     main()
