@@ -1,0 +1,31 @@
+2025-12-02 13:51:07,208 INFO    MainThread:13092 [wandb_setup.py:_flush():80] Current SDK version is 0.23.0
+2025-12-02 13:51:07,208 INFO    MainThread:13092 [wandb_setup.py:_flush():80] Configure stats pid to 13092
+2025-12-02 13:51:07,208 INFO    MainThread:13092 [wandb_setup.py:_flush():80] Loading settings from /Users/alvinwang/.config/wandb/settings
+2025-12-02 13:51:07,208 INFO    MainThread:13092 [wandb_setup.py:_flush():80] Loading settings from /Users/alvinwang/cs/Retrieval/src/wandb/settings
+2025-12-02 13:51:07,208 INFO    MainThread:13092 [wandb_setup.py:_flush():80] Loading settings from environment variables
+2025-12-02 13:51:07,209 INFO    MainThread:13092 [wandb_init.py:setup_run_log_directory():713] Logging user logs to /Users/alvinwang/cs/Retrieval/src/wandb/run-20251202_135107-v8vuy4ci/logs/debug.log
+2025-12-02 13:51:07,209 INFO    MainThread:13092 [wandb_init.py:setup_run_log_directory():714] Logging internal logs to /Users/alvinwang/cs/Retrieval/src/wandb/run-20251202_135107-v8vuy4ci/logs/debug-internal.log
+2025-12-02 13:51:07,209 INFO    MainThread:13092 [wandb_init.py:init():840] calling init triggers
+2025-12-02 13:51:07,212 INFO    MainThread:13092 [wandb_init.py:init():845] wandb.init called with sweep_config: {}
+config: {'term': 'independent economic value', 'type': 'few_shot', 'num_sentences': 1523, 'label_map': {'no value': 0, 'potential value': 1, 'certain value': 2, 'high value': 3}, 'label_counts': {'no value': 861, 'certain value': 314, 'potential value': 181, 'high value': 167}, 'confusion': gpt_label_str  certain value  high value  no value  potential value
+label_score                                                        
+0.0                       42          27       612               23
+1.0                      104          92       223               93
+2.0                       62          13         5               35
+3.0                      106          35        21               30, '_wandb': {}}
+2025-12-02 13:51:07,212 INFO    MainThread:13092 [wandb_init.py:init():888] starting backend
+2025-12-02 13:51:07,448 INFO    MainThread:13092 [wandb_init.py:init():891] sending inform_init request
+2025-12-02 13:51:07,465 INFO    MainThread:13092 [wandb_init.py:init():899] backend started and connected
+2025-12-02 13:51:07,474 INFO    MainThread:13092 [wandb_init.py:init():969] updated telemetry
+2025-12-02 13:51:07,503 INFO    MainThread:13092 [wandb_init.py:init():993] communicating run to backend with 90.0 second timeout
+2025-12-02 13:51:07,939 INFO    MainThread:13092 [wandb_init.py:init():1040] starting run threads in backend
+2025-12-02 13:51:08,001 INFO    MainThread:13092 [wandb_run.py:_console_start():2504] atexit reg
+2025-12-02 13:51:08,001 INFO    MainThread:13092 [wandb_run.py:_redirect():2352] redirect: wrap_raw
+2025-12-02 13:51:08,001 INFO    MainThread:13092 [wandb_run.py:_redirect():2421] Wrapping output streams.
+2025-12-02 13:51:08,001 INFO    MainThread:13092 [wandb_run.py:_redirect():2444] Redirects installed.
+2025-12-02 13:51:08,003 INFO    MainThread:13092 [wandb_init.py:init():1080] run started, returning control to user process
+2025-12-02 13:51:09,779 INFO    MainThread:13092 [wandb_run.py:_finish():2270] finishing run alvinw2-carnegie-mellon-university/statutory-term-ndcg-eval/v8vuy4ci
+2025-12-02 13:51:09,780 INFO    MainThread:13092 [wandb_run.py:_atexit_cleanup():2469] got exitcode: 0
+2025-12-02 13:51:09,780 INFO    MainThread:13092 [wandb_run.py:_restore():2451] restore
+2025-12-02 13:51:09,780 INFO    MainThread:13092 [wandb_run.py:_restore():2457] restore done
+2025-12-02 13:51:11,947 INFO    MainThread:13092 [wandb_run.py:_footer_sync_info():3853] logging synced files
