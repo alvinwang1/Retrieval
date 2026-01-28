@@ -1,0 +1,5 @@
+✅ FINAL RULES
+
+• Apply the workflow strictly and consistently.
+• When uncertain, choose the lower value label.
+• Output only the JSON array in the required format.

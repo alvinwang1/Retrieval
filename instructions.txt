@@ -1,0 +1,150 @@
+============================================================
+HOW TO RUN bert_val.py (ALL MODES)
+============================================================
+
+Make sure you are in the directory that contains bert_val.py.
+Paths below assume your outputs live under:
+  /content/drive/MyDrive/src/
+
+------------------------------------------------------------
+1) instruction MODE
+------------------------------------------------------------
+Single sequence:
+[CLS] instruction + separator + sentence [SEP]
+
+TRAIN + EVALUATE
+------------------------------------------------------------
+python bert_val.py \
+  --test_fold 1 --val_fold 2 \
+  --epochs 3 --batch_size 8 --max_length 256 \
+  --mode instruction \
+  --instruction "You are an expert legal text evaluator. Label the sentence." \
+  --sep "\n\n### Sentence:\n" \
+  --cpu_only true
+
+EVAL ONLY
+------------------------------------------------------------
+python bert_val.py \
+  --test_fold 1 --val_fold 2 \
+  --batch_size 8 --max_length 256 \
+  --mode instruction \
+  --instruction "" --sep "" \
+  --eval_only true \
+  --model_dir "/content/drive/MyDrive/src/modernbert-legal-instruction-test1-val2/best-model" \
+  --cpu_only true
+
+
+------------------------------------------------------------
+2) qry2snt MODE
+------------------------------------------------------------
+Pair sequence:
+[CLS] term [SEP] sentence [SEP]
+
+TRAIN + EVALUATE
+------------------------------------------------------------
+python bert_val.py \
+  --test_fold 1 --val_fold 2 \
+  --epochs 3 --batch_size 8 --max_length 256 \
+  --mode qry2snt \
+  --cpu_only false
+
+EVAL ONLY
+------------------------------------------------------------
+python bert_val.py \
+  --test_fold 1 --val_fold 2 \
+  --batch_size 8 --max_length 256 \
+  --mode qry2snt \
+  --eval_only true \
+  --model_dir "/content/drive/MyDrive/src/modernbert-legal-qry2snt-test1-val2/best-model" \
+  --cpu_only false
+
+
+------------------------------------------------------------
+3) prov2snt MODE
+------------------------------------------------------------
+Pair sequence:
+[CLS] raw_provision [SEP] sentence [SEP]
+
+TRAIN + EVALUATE
+------------------------------------------------------------
+python bert_val.py \
+  --test_fold 1 --val_fold 2 \
+  --epochs 3 --batch_size 8 --max_length 512 \
+  --mode prov2snt \
+  --cpu_only false
+
+EVAL ONLY
+------------------------------------------------------------
+python bert_val.py \
+  --test_fold 1 --val_fold 2 \
+  --batch_size 8 --max_length 512 \
+  --mode prov2snt \
+  --eval_only true \
+  --model_dir "/content/drive/MyDrive/src/modernbert-legal-prov2snt-test1-val2/best-model" \
+  --cpu_only false
+
+
+------------------------------------------------------------
+4) spqry2snt MODE
+------------------------------------------------------------
+Pair sequence:
+[CLS] raw_provision(with <term_of_interest>...</term_of_interest>) [SEP] sentence [SEP]
+
+TRAIN + EVALUATE
+------------------------------------------------------------
+python bert_val.py \
+  --test_fold 1 --val_fold 2 \
+  --epochs 3 --batch_size 8 --max_length 512 \
+  --mode spqry2snt \
+  --cpu_only false
+
+EVAL ONLY
+------------------------------------------------------------
+python bert_val.py \
+  --test_fold 1 --val_fold 2 \
+  --batch_size 8 --max_length 512 \
+  --mode spqry2snt \
+  --eval_only true \
+  --model_dir "/content/drive/MyDrive/src/modernbert-legal-spqry2snt-test1-val2/best-model" \
+  --cpu_only false
+
+------------------------------------------------------------
+5) sp2par(snt) MODE
+
+TRAIN + EVALUATE
+------------------------------------------------------------
+python bert_val.py \
+  --test_fold 1 --val_fold 2 \
+  --epochs 3 --batch_size 8 --max_length 1024 \
+  --mode sp2par_snt \
+  --cpu_only false
+
+EVAL ONLY
+------------------------------------------------------------
+!python /content/drive/MyDrive/src/bert_val.py \
+  --test_fold 1 --val_fold 2 \
+  --batch_size 16 --max_length 1280 \
+  --mode sp2par_snt \
+  --eval_only true \
+  --model_dir "/content/drive/MyDrive/src/modernbert-legal-sp2par(snt)-test1-val2/best-model" \
+  --cpu_only false
+------------------------------------------------------------
+NOTES
+------------------------------------------------------------
+• test_fold and val_fold must be different (1–6)
+• Training uses the remaining 4 folds
+• Outputs are written to:
+  /content/drive/MyDrive/src/modernbert-legal-<mode>-test<TEST>-val<VAL>/
+
+• On A100 GPUs you can safely try larger batch sizes
+• prov2snt / spqry2snt require provisions.json to be present
+============================================================
+
+============================================================
+python rank.py --term "accommodation trade" \
+--type large_context \
+--sentences sources/accommodation_trade/accommodation_trade-sentence.json \
+--provisions sources/provisions.json \
+--verbose true
+
+python run_multi.py --type large_context --runs 1 --workers 5
