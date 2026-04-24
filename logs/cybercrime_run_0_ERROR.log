@@ -1,0 +1,6 @@
+Command: /Library/Developer/CommandLineTools/usr/bin/python3 rank.py --term cybercrime --type few_shot --sentences sources/cybercrime/cybercrime-sentence.json --provisions sources/provisions.json --verbose false
+Error Code: 1
+Traceback (most recent call last):
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 5, in <module>
+    from openai import OpenAI, AsyncOpenAI
+ModuleNotFoundError: No module named 'openai'

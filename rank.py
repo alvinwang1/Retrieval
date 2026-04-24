@@ -30,6 +30,64 @@ LABEL_MAP = {
     "high value": 3,
 }
 
+# 6-fold term distribution for cross-validation
+FOLDS: List[List[str]] = [
+    [
+        "navigation equipment",
+        "leadership role in an organization",
+        "aural transfer",
+        "semiconductor chip product",
+        "distributive share of the income",
+        "preexisting work",
+        "audiovisual work",
+    ],
+    [
+        "nonindustrial use",
+        "significant property damage",
+        "nonmonetary benefits",
+        "basic allowance for subsistence",
+        "stored electronically",
+        "independent economic value",
+        "technological measure",
+    ],
+    [
+        "unduly disrupt the operations",
+        "substantial portion of the public",
+        "small manufacturer",
+        "accommodation trade",
+        "standard coin",
+        "residential dwelling",
+        "common business purpose",
+    ],
+    [
+        "hazardous liquid",
+        "fully amortize",
+        "security vulnerability",
+        "familiar symbol",
+        "mechanical recordation",
+        "electronic signature",
+        "fermented liquor",
+    ],
+    [
+        "hybrid instrument",
+        "unreasonably low prices",
+        "gas pipeline facility",
+        "preemployment testing",
+        "final average compensation",
+        "identifying particular",
+        "useful improvement",
+    ],
+    [
+        "dischargeable consumer debt",
+        "cybercrime",
+        "digital musical recording",
+        "viticultural",
+        "dependent on hours worked",
+        "essential step",
+        "switchblade knife",
+    ],
+]
+
 def normalize_entry(term: str, entry: dict) -> Tuple[str, str]:
     if not isinstance(entry, dict):
         raise ValueError(f"Value for key '{term}' must be an object with 'analyzed' and 'raw'.")
@@ -86,6 +144,7 @@ async def _gpt_label_single_batch(df_batch: pd.DataFrame, eval_type: str, term: 
     }
     response = await client.chat.completions.create(
         model="gpt-4o-mini",
+        temperature=0.0,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": json.dumps(user_content)},
@@ -157,20 +216,75 @@ async def generate_explanation(text: str, label: str, term: str, raw_statute: st
     }
     response = await client.chat.completions.create(
         model="gpt-4o-mini",
+        temperature=0.0,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": json.dumps(user_content)},
         ]
     )
     return response.choices[0].message.content
-async def gpt_label_batch(df: pd.DataFrame, eval_type: str, term: str, id_check: bool, raw_statute: str, system_prompt) -> pd.DataFrame:
-    # Load system prompt once
+
+async def _gpt_probabilities_single_batch(df_batch: pd.DataFrame, term: str, system_prompt: str, raw_statute: str) -> pd.DataFrame:
+    records = [
+        {"sentence_id": str(row["sentence_id"]), "text": str(row["text"])}
+        for _, row in df_batch.iterrows()
+    ]
+    user_content = {
+        "phrase_of_interest": term,
+        "raw_statute": raw_statute,
+        "sentences": records,
+    }
     
- 
+    prob_instructions = (
+        "\n\nFor each sentence, return a probability distribution over the four classes: "
+        "'no value', 'potential value', 'certain value', and 'high value'. "
+        "The probabilities must sum to 1.0 for each sentence.\n"
+        "Return strictly as a JSON array of objects:\n"
+        '[{"sentence_id": "...", "probs": {"no value": 0.1, "potential value": 0.2, "certain value": 0.3, "high value": 0.4}}, ...]'
+    )
+
+    response = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        temperature=0.0,
+        messages=[
+            {"role": "system", "content": system_prompt + prob_instructions},
+            {"role": "user", "content": json.dumps(user_content)},
+        ]
+    )
+
+    output_text = response.choices[0].message.content
+    try:
+        gpt_data = extract_json_array(output_text)
+        results = []
+        for item in gpt_data:
+            sid = str(item["sentence_id"])
+            probs = item["probs"]
+            # EV calculation: i * P(class=i)
+            ev = (
+                probs.get("no value", 0.0) * 0 +
+                probs.get("potential value", 0.0) * 1 +
+                probs.get("certain value", 0.0) * 2 +
+                probs.get("high value", 0.0) * 3
+            )
+            results.append({
+                "sentence_id": sid,
+                "gpt_label_score": ev,
+                "gpt_label_str": "distribution"
+            })
+        return pd.DataFrame(results)
+    except Exception as e:
+        print(f"ERROR processing GPT probabilities: {e}")
+        print(f"Response: {output_text}")
+        raise
+
+async def gpt_label_batch(df: pd.DataFrame, eval_type: str, term: str, id_check: bool, raw_statute: str, system_prompt) -> pd.DataFrame:
     tasks = []
     for start in range(0, len(df), BATCH_SIZE):
         sub = df.iloc[start:start + BATCH_SIZE]
-        tasks.append(asyncio.create_task(_gpt_label_single_batch(sub, eval_type, term, system_prompt, raw_statute)))
+        if eval_type == "probabilities":
+            tasks.append(asyncio.create_task(_gpt_probabilities_single_batch(sub, term, system_prompt, raw_statute)))
+        else:
+            tasks.append(asyncio.create_task(_gpt_label_single_batch(sub, eval_type, term, system_prompt, raw_statute)))
 
     # Run all batches concurrently
     batches = []
@@ -219,14 +333,14 @@ async def grab_sentence(provisions, init_label):
     raw_statute = provisions[chosen_dataset]["raw"]
     if(LABEL_MAP[label] != init_label):
         return None
+    # Use temperature 0.0 for explanations too
     explanation = await generate_explanation(row['text'], label, chosen_dataset, raw_statute)
     generated_examples = f"\nPhrase of Interest: {chosen_dataset}\nRaw Statute: {raw_statute}\nSentence: {row['text']}\nAnnotator Label: {label}\nExplanation: {explanation}\n"
-    print(generated_examples)
     return generated_examples
 
 async def retrieve_system_prompt(term, eval_type, df, raw_statute, id_check, provisions):
     final_rules_path = None
-    if eval_type == "zero_shot" or eval_type == "zero_shot_full":
+    if eval_type == "zero_shot" or eval_type == "zero_shot_full" or eval_type == "probabilities":
         prompt_path = "system_prompts/zero_shot.txt"
     elif eval_type == "few_shot":
         prompt_path = "system_prompts/few_shot.txt"  # make sure this exists
@@ -238,38 +352,42 @@ async def retrieve_system_prompt(term, eval_type, df, raw_statute, id_check, pro
 
     with open(prompt_path, "r", encoding="utf-8") as f:
         system_prompt = f.read()
-    if eval_type == "few_shot_learn_full":
+    if eval_type == "few_shot" or eval_type == "few_shot_learn_full":
+        # Identify Fold for target term
+        target_fold_idx = -1
+        for i, fold in enumerate(FOLDS):
+            if term in fold:
+                target_fold_idx = i
+                break
+        
+        other_fold_terms = []
+        for i, fold in enumerate(FOLDS):
+            if i != target_fold_idx:
+                other_fold_terms.extend(fold)
+        
+        # Build dictionary of terms -> provisions for other folds
+        other_provisions = {t: provisions[t] for t in other_fold_terms if t in provisions}
+        
         generated_examples = ""
-        # 1️⃣ your dataset names and row counts (same order)
-
-        # 2️⃣ pick random global row index
-        # grab total of 8 total in order
-        counter = 0
-        while(counter != 2):
-            example = await grab_sentence(provisions, 0)
-            if example is not None:
-                generated_examples += example
-                counter += 1
-        while(counter != 4):
-            example = await grab_sentence(provisions, 1)
-            if example is not None:
-                generated_examples += example
-                counter += 1
-        while(counter != 6):
-            example = await grab_sentence(provisions, 2)
-            if example is not None:
-                generated_examples += example
-                counter += 1
-        while(counter != 8):
-            example = await grab_sentence(provisions, 3)
-            if example is not None:
-                generated_examples += example
-                counter += 1
-        final_rules_prompt = ""
-        with open(final_rules_path, "r", encoding="utf-8") as f:
-            final_rules_prompt = f.read()
-        final_rules_prompt = generated_examples + final_rules_prompt
-        system_prompt += "\n" + final_rules_prompt
+        # grab total of 8 total (2 per class)
+        for label_val in [0, 1, 2, 3]:
+            count = 0
+            while count < 2:
+                example = await grab_sentence(other_provisions, label_val)
+                if example is not None:
+                    generated_examples += example
+                    count += 1
+        
+        if eval_type == "few_shot_learn_full":
+            final_rules_path = "system_prompts/final_rules.txt"
+            final_rules_prompt = ""
+            with open(final_rules_path, "r", encoding="utf-8") as f:
+                final_rules_prompt = f.read()
+            final_rules_prompt = generated_examples + final_rules_prompt
+            system_prompt += "\n" + final_rules_prompt
+        else:
+            # Just append examples for regular few-shot
+            system_prompt += "\nExpert Examples for Guidance:\n" + generated_examples
 
     if final_rules_path is not None:
         
@@ -603,7 +721,8 @@ async def evaluate_large_context(term: str, sentences_path: Path, paragraphs_pat
         # Heuristic: 1 token approx 3 chars. 
         # OpenAI Limit: 128k tokens. 
         # Target: ~80k tokens -> ~250,000 chars (extremely conservative).
-        MAX_CHARS = 250_000 
+        # Limits: gpt-4o-mini: 250k, Others (gpt-4o/gpt-5.2): 900k
+        MAX_CHARS = 250_000 if args.model == "gpt-4o-mini" else 900_000
         
         # Estimate static parts
         # Note: Using short IDs for candidates now
@@ -788,8 +907,8 @@ def main():
     ap.add_argument("--sentences", default="sources/independent_economic_value/independent_economic_value-sentence.json", help="Path to sentences json")
     ap.add_argument("--provisions", default="sources/provisions.json", help="Path to provisions json")
     ap.add_argument("--term", default="independent economic value", help="Provision key to use as query")
-    ap.add_argument("--type", default="naive", help ="naive | zero_shot | few_shot_learn | few_shot | large_context")
-    ap.add_argument("--model", default="gpt-4o", help="Model to use (default: gpt-4o)")
+    ap.add_argument("--type", default="naive", help ="naive | zero_shot | few_shot | few_shot_learn | probabilities | large_context")
+    ap.add_argument("--model", default="gpt-4o-mini", help="Model to use (default: gpt-4o-mini)")
     ap.add_argument("--log", default="false", help="Log to wandb")
     ap.add_argument("--verbose", default="false", help="Verbose output")
     ap.add_argument("--id_check", default="false", help="Run ID check")
@@ -848,9 +967,8 @@ def main():
         # NDCG evaluation
         for k in [10, 20, 40, 100]:
             ndcg_scores.append(ndcg_score([df_st_sorted["label_score"].tolist()], [df_st_sorted["similarity"].tolist()], k=k))
-    if args.type == "zero_shot" or args.type == "few_shot" or args.type == "few_shot_learn":
+    if args.type in ["zero_shot", "few_shot", "few_shot_learn", "probabilities"]:
         # Get GPT labels for each sentence
-
         system_prompt = asyncio.run(
             retrieve_system_prompt(args.term, args.type, df, raw_statute, args.id_check, provisions)
         )
@@ -944,7 +1062,7 @@ def main():
     if args.type == "naive" and args.verbose == "true" and df_st_sorted is not None:
         for i, row in df_st_sorted.head(topk).iterrows():
             print(f"[{i+1:>2}] sim={row['similarity']:.4f}  rel={row['label_score']:<2}  | {row['text']}")
-    elif (args.type == "zero_shot" or args.type == "few_shot" or args.type == "few_shot_learn") and args.verbose == "true" and df_st_sorted is not None:
+    elif args.type in ["zero_shot", "few_shot", "few_shot_learn", "probabilities"] and args.verbose == "true" and df_st_sorted is not None:
         for i, row in df_st_sorted.head(topk).iterrows():
             # use GPT’s predicted score as “sim”
             print(f"[{i+1:>2}] sim={row['gpt_label_score']:.4f}  rel={row['label_score']:<2}  | {row['text']}")

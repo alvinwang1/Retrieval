@@ -1,0 +1,158 @@
+Command: /opt/anaconda3/bin/python rank.py --term preexisting work --type probabilities --sentences sources/preexisting_work/preexisting_work-sentence.json --provisions sources/provisions.json --verbose false
+----------------------------------------
+You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+
+You will be given:
+
+The phrase of interest
+
+The statutory or regulatory provision containing that phrase (“the statute”)
+
+A list of candidate sentences, each with a unique sentence_id
+
+Your classification must consider both the phrase of interest and the statute.
+If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
+
+✅ OUTPUT FORMAT (STRICT)
+
+Return ONLY a JSON array, nothing else:
+
+[
+  {"sentence_id": "...", "label": "..."},
+  {"sentence_id": "...", "label": "..."}
+]
+
+
+No explanations, no comments, no reasoning, no additional keys.
+
+✅ CLASSIFICATION LABELS
+
+Exactly one label per sentence:
+
+"no value"
+
+"potential value"
+
+"certain value"
+
+"high value"
+
+✅ ANNOTATION GUIDELINES
+
+A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
+
+Evaluate each sentence using the following workflow:
+
+STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
+
+If the sentence:
+
+repeats or paraphrases the statute
+
+quotes the statute verbatim or near-verbatim
+
+is a heading, boilerplate, citation, or procedural note
+
+does not mention or relate meaningfully to the phrase of interest
+
+→ Label: "no value"
+→ Stop.
+
+STEP 2 — Does the sentence use the phrase of interest with a different meaning?
+
+If different and unrelated to the statute’s meaning → "no value".
+If different but related → "potential value" or "certain value" depending on strength.
+Then stop.
+
+STEP 3 — Does the sentence contain explicit elaboration of meaning?
+
+Explicit elaboration includes:
+
+definitions
+
+explanations
+
+positive or negative examples
+
+subsumption (“X is a type of Y”)
+
+contrasts
+
+feature inclusion (“X requires Y”)
+
+feature exclusion (“X does not include Y”)
+
+If yes:
+
+If authored by an interested party/witness → "certain value"
+
+If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
+
+Then stop.
+
+STEP 4 — Does the sentence contain implicit elaboration?
+
+Implicit elaboration includes:
+
+factual scenarios implying boundaries of the term
+
+contextual clues from which meaning can be inferred
+
+comparisons or contrasts that clarify usage
+
+functional descriptions suggesting how the term operates
+
+If none → "potential value" (weak relevance; no direct elaboration).
+If implicit elaboration exists:
+
+If from an interested source → "potential value"
+
+If from a neutral source → "certain value"
+
+Then stop.
+
+✅ ADDITIONAL NOTES
+
+Do NOT assign value based solely on topical similarity.
+
+Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
+
+Always choose the lowest plausible label when uncertain.
+
+The goal is interpretive usefulness, not relevance to the case as a whole.
+
+Method: probabilities | Term: preexisting work
+NDCG@10: 0.2220598574991062
+NDCG@20: 0.27445956997991394
+NDCG@40: 0.3183404490910151
+NDCG@100: 0.40783482044986574
+
+----------------------------------------
+STDERR:
+wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netrc
+wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+
+GPT batches:   0%|          | 0/33 [00:00<?, ?batch/s]
+GPT batches:   3%|▎         | 1/33 [00:25<13:51, 25.99s/batch]
+GPT batches:   6%|▌         | 2/33 [00:26<05:40, 10.99s/batch]
+GPT batches:   9%|▉         | 3/33 [00:26<03:04,  6.14s/batch]
+GPT batches:  12%|█▏        | 4/33 [00:27<01:52,  3.90s/batch]
+GPT batches:  18%|█▊        | 6/33 [00:27<00:52,  1.96s/batch]
+GPT batches:  21%|██        | 7/33 [00:29<00:49,  1.92s/batch]
+GPT batches:  24%|██▍       | 8/33 [00:29<00:36,  1.48s/batch]
+GPT batches:  27%|██▋       | 9/33 [00:30<00:27,  1.13s/batch]
+GPT batches:  30%|███       | 10/33 [00:32<00:31,  1.37s/batch]
+GPT batches:  36%|███▋      | 12/33 [00:32<00:16,  1.29batch/s]
+GPT batches:  42%|████▏     | 14/33 [00:32<00:09,  2.04batch/s]
+GPT batches:  52%|█████▏    | 17/33 [00:32<00:04,  3.46batch/s]
+GPT batches:  58%|█████▊    | 19/33 [00:32<00:03,  4.35batch/s]
+GPT batches:  64%|██████▎   | 21/33 [00:32<00:02,  5.65batch/s]
+GPT batches:  70%|██████▉   | 23/33 [00:33<00:01,  6.66batch/s]
+GPT batches:  76%|███████▌  | 25/33 [00:34<00:02,  3.12batch/s]
+GPT batches:  79%|███████▉  | 26/33 [00:37<00:05,  1.37batch/s]
+GPT batches:  85%|████████▍ | 28/33 [00:37<00:02,  1.91batch/s]
+GPT batches:  88%|████████▊ | 29/33 [00:37<00:01,  2.14batch/s]
+GPT batches:  94%|█████████▍| 31/33 [00:37<00:00,  2.83batch/s]
+GPT batches:  97%|█████████▋| 32/33 [00:38<00:00,  3.15batch/s]
+GPT batches: 100%|██████████| 33/33 [01:44<00:00, 15.09s/batch]
+GPT batches: 100%|██████████| 33/33 [01:44<00:00,  3.15s/batch]
