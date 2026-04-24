@@ -1,0 +1,10 @@
+2026-04-24 10:30:16,755 INFO    MainThread:25963 [wandb_init.py:setup_run_log_directory():713] Logging user logs to /Users/alvinwang/cs/Retrieval/Retrieval/wandb/run-20260424_103016-goetv375/logs/debug.log
+2026-04-24 10:30:16,755 INFO    MainThread:25963 [wandb_init.py:setup_run_log_directory():714] Logging internal logs to /Users/alvinwang/cs/Retrieval/Retrieval/wandb/run-20260424_103016-goetv375/logs/debug-internal.log
+2026-04-24 10:30:16,755 INFO    MainThread:25963 [wandb_init.py:init():840] calling init triggers
+2026-04-24 10:30:16,760 INFO    MainThread:25963 [wandb_init.py:init():845] wandb.init called with sweep_config: {}
+config: {'term': 'unreasonably low prices', 'type': 'probabilities', 'num_sentences': 508, 'label_map': {'no value': 0, 'potential value': 1, 'certain value': 2, 'high value': 3}, 'label_counts': {'distribution': 508}, 'confusion': gpt_label_str  distribution
+label_score                
+0.0                     214
+1.0                     202
+2.0                      62
+3.0                      30, '_wandb': {}}

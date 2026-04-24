@@ -1,131 +1,79 @@
 Command: /opt/anaconda3/bin/python rank.py --term dependent on hours worked --type probabilities --sentences sources/dependent_on_hours_worked/dependent_on_hours_worked-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: 4bcbaada-c9a2-4886-b88c-b71abc679df3] Reasoning: This sentence is a direct quote from the statute, repeating the definition of sums that are excluded from the 'regular rate'. It does not provide any new interpretive context or application.
+  [ID: 93e0c001-4b0d-47fd-8b29-c4aeab81f7b2] Reasoning: This sentence is also a direct quote from the statute, reiterating the same definition regarding gifts and their exclusion from the 'regular rate'. It lacks any interpretive value or additional context.
+  [ID: dc89c037-534a-4067-b7d9-cc9b6d70031f] Reasoning: Direct quote from the statute. No interpretive value beyond the statute itself.
+  [ID: 8385d399-85dc-4110-be02-99575d1dd9c8] Reasoning: This sentence applies the concept of payments not dependent on hours worked to longevity payments, providing a specific legal conclusion.
+  [ID: acd12298-2bc0-4418-804e-81de14bc1a43] Reasoning: This sentence discusses a court's ruling on longevity payments, clarifying their classification as gifts based on the criteria of not being dependent on hours worked.
+  [ID: 75473bdd-93fc-43b4-87f6-504dcea60dde] Reasoning: This sentence explains that the Debtor's compensation is based on sales rather than hours worked, providing a practical application of the concept.
+  [ID: 0797238e-98eb-431c-b773-5971d9fdb06b] Reasoning: Direct quote from the statute. No interpretive value beyond the statute itself.
+  [ID: 4bafd9c2-084e-405b-be30-d0fdabf82bc5] Reasoning: Direct quote from the statute. No interpretive value beyond the statute itself.
+  [ID: 523b21f0-bcb8-4ed9-aec0-0303582357fb] Reasoning: Direct quote from the statute. No interpretive value beyond the statute itself.
+  [ID: 54d7204b-86cd-454a-8bd2-d8394e2eed51] Reasoning: Direct quote from the statute. No interpretive value beyond the statute itself.
+  [ID: 0e578fd1-1c84-45c7-9dcc-02b18be48fb9] Reasoning: Direct quote from the statute. No interpretive value beyond the statute itself.
+  [ID: 644f2fd9-3e2b-4183-bca2-6100f846f41e] Reasoning: This sentence emphasizes that simply not being measured by hours worked is insufficient for exclusion from the regular rate, indicating a need for further context.
+  [ID: a0968624-9821-4482-9ffd-f64c4e429040] Reasoning: This sentence discusses the Conference Report's stance on payments not being automatically excluded from the regular rate, adding interpretive context.
+  [ID: b95fc411-985b-4ae0-a4a7-b0239a357c7f] Reasoning: This sentence analyzes legislative intent regarding the classification of payments, providing critical interpretive guidance.
+  [ID: fe7b3bf1-9af2-44a3-bdaa-5d1493c97bb0] Reasoning: This sentence discusses the inability to classify RTI as not dependent on hours worked, providing a specific application of the statute.
+  [ID: 63ac5519-bd30-4938-b4e5-5c96c5de0e02] Reasoning: This sentence explains that RTI cannot be excluded from regular rates as a gift, providing a specific legal conclusion based on the statute.
+  [ID: 7ab4a3a5-7377-4383-aa2b-fda4b8896381] Reasoning: Direct quote from the statute. No interpretive value beyond the statute itself.
+  [ID: 6c58cb5a-bc8e-4394-a067-66f9b7379730] Reasoning: This sentence discusses the classification of add-ons as lump-sum payments not dependent on hours worked, providing a practical application.
+  [ID: 08f9bbf4-dd1b-4962-99e2-7863e26ae579] Reasoning: This sentence states that sums paid as gifts are not part of the regular rate, reiterating the statute without adding new context.
+  [ID: fd7b5fd9-f760-47c8-b672-afcf160f5fb8] Reasoning: Direct quote from the statute. No interpretive value beyond the statute itself.
+  [ID: 76512974-d9f6-4ea7-917f-3b8d9c974b71] Reasoning: This sentence summarizes various types of payments not dependent on hours worked, but does not provide new interpretive context.
+  [ID: a7758986-e7c4-4d42-996f-15c7bc391b2c] Reasoning: Direct quote from the statute. No interpretive value beyond the statute itself.
+  [ID: 8e946a1a-c6b2-44be-90f9-d33697aea5f9] Reasoning: This sentence indicates that the amount of payments was dependent on hours worked, providing a contrasting application of the statute.
+  [ID: 3e969574-04e3-4adc-9cfc-871b96cf4020] Reasoning: Direct quote from the statute. No interpretive value beyond the statute itself.
+  [ID: fa53364e-e12f-4cb5-b5e8-7e09e96da17a] Reasoning: This sentence discusses the classification of vacation and sick pay, providing a specific legal context for interpretation.
+  [ID: f2bbc690-1846-4295-883d-b95fb2e1beb4] Reasoning: This sentence states that eligibility for benefits is dependent on hours worked, providing a relevant context but not directly related to the phrase of interest.
+  [ID: bb7777c6-5e46-46c1-8581-6dbc53dcfe58] Reasoning: This sentence discusses a board's ruling on vacation and sick pay, providing a specific application of the statute that relates to the phrase of interest.
 Method: probabilities | Term: dependent on hours worked
-NDCG@10: 0.8100445218331708
-NDCG@20: 0.8700541922007407
-NDCG@40: 0.9035900178725781
-NDCG@100: 0.9035900178725781
+NDCG@10: 0.9074087025134242
+NDCG@20: 0.8947734859005096
+NDCG@40: 0.9240049215360494
+NDCG@100: 0.9240049215360494
 
 ----------------------------------------
 STDERR:
@@ -133,6 +81,6 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/2 [00:00<?, ?batch/s]
-GPT batches:  50%|█████     | 1/2 [00:02<00:02,  2.71s/batch]
-GPT batches: 100%|██████████| 2/2 [00:22<00:00, 12.74s/batch]
-GPT batches: 100%|██████████| 2/2 [00:22<00:00, 11.24s/batch]
+GPT batches:  50%|█████     | 1/2 [00:06<00:06,  6.96s/batch]
+GPT batches: 100%|██████████| 2/2 [00:46<00:00, 26.04s/batch]
+GPT batches: 100%|██████████| 2/2 [00:46<00:00, 23.18s/batch]

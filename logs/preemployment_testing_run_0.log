@@ -1,131 +1,120 @@
 Command: /opt/anaconda3/bin/python rank.py --term preemployment testing --type probabilities --sentences sources/preemployment_testing/preemployment_testing-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: 11e25234-bcfa-454b-a88a-904283601c9a] Reasoning: Mentions state laws regulating drug testing, but does not provide specific interpretive context or application related to preemployment testing.
+  [ID: 0cb89d6f-3482-4247-b6d9-02506e5c5bce] Reasoning: Discusses the duty of the employer and employee regarding preemployment tests, but lacks depth in legal interpretation or application.
+  [ID: dfc43ec2-26a8-40f6-917b-fa16c8d66656] Reasoning: Describes a specific instance of preemployment testing but does not provide broader interpretive context or legal implications.
+  [ID: f1e1e9b2-4617-41ba-a3f7-5c0999c94b72] Reasoning: Directly quotes the statute regarding preemployment testing without adding any interpretive value.
+  [ID: 5272af2e-19ed-4f10-b5c6-a77015987cb1] Reasoning: Describes a specific case of passing preemployment tests but lacks broader legal implications or context.
+  [ID: 67bbb5d7-380e-479c-825f-30eddd080089] Reasoning: Mentions eligibility for a fire department based on preemployment tests but does not provide legal analysis or context.
+  [ID: 3df3748e-51ba-4ed1-8261-7054bdb183a5] Reasoning: Describes a workplace policy including preemployment tests but lacks specific legal interpretation or application.
+  [ID: e4215934-d26f-483e-88d6-f378464eed2e] Reasoning: Mentions oversight of preemployment testing but does not provide interpretive context or legal implications.
+  [ID: 2ca2be1a-c2e4-4aab-80db-688acc57d0e4] Reasoning: Cites case law that distinguishes between types of drug testing, providing some interpretive context regarding preemployment tests.
+  [ID: adca8c77-24ce-4df7-9a53-b2ba5e5e4d5b] Reasoning: Raises a legal question about the status of an interviewee during preemployment testing, indicating potential legal implications.
+  [ID: 23d67bc7-d50e-4560-a313-47b09c0087a8] Reasoning: Discusses jurisdictions relying on employer-employee relationships for workers' compensation coverage related to preemployment tests, providing useful context.
+  [ID: c8d20d9c-0070-4849-b1d6-d1e0764f7c90] Reasoning: Describes a negligent act during a preemployment test, which could have legal implications, but lacks broader context.
+  [ID: 5c459ab5-30fc-4d9d-acf9-5bb2e0aa69e5] Reasoning: Mentions a narrowing of preemployment testing requirements but does not provide interpretive context or legal implications.
+  [ID: 972ceb77-51d0-47d9-8625-c3b7dacfd31c] Reasoning: Presents statistics on the success of preemployment testing programs, which could provide context but lacks specific legal analysis.
+  [ID: 60f2701b-5659-421a-9ff8-955a19c898c9] Reasoning: Similar to a previous sentence, discusses jurisdictions relying on employer-employee relationships for workers' compensation but lacks depth.
+  [ID: 2dc65f9a-515e-4b5b-8bbe-15a070a6ac6b] Reasoning: Describes an applicant's actions related to preemployment tests but lacks broader legal implications or context.
+  [ID: 6f6a786a-1b9b-4993-8f1f-b928d7c8d8a8] Reasoning: Discusses compensability of injuries during preemployment tests, providing some legal context but lacks depth.
+  [ID: e771682b-4eb4-4a0f-a3cf-08b6a91323e0] Reasoning: Cites a Supreme Court case regarding preemployment testing and employment contracts, providing significant interpretive context.
+  [ID: 3c922b21-80f9-41d4-89ba-6147689eaab5] Reasoning: States that participation in a preemployment test does not create an employment contract, providing critical legal interpretation.
+  [ID: c1986f8b-4fe9-4a0f-9ba8-00b90043eafa] Reasoning: Mentions a specific type of preemployment test but does not provide additional interpretive context or legal implications.
+  [ID: 9deead47-e51a-4c3a-8c52-5ecc1c8f2b06] Reasoning: This sentence discusses the absence of preemployment tests for physical strength in a specific company context, but does not provide any interpretive value related to the statutory context of preemployment testing for commercial motor vehicle operators.
+  [ID: 2a870eb5-b07e-4b60-9e4a-8b2dbb8d0b7f] Reasoning: This sentence mentions that an individual underwent preemployment testing but lacks any context or analysis that would enhance understanding of the statutory implications of such testing.
+  [ID: 20f8b8eb-800e-4bb4-a54a-c99e531c3600] Reasoning: This sentence discusses the recruitment of minorities in relation to preemployment testing but does not clarify the legal implications or applications of preemployment testing as outlined in the statute.
+  [ID: cecec112-425b-4ff3-a08b-3254b8b9f3b4] Reasoning: This sentence addresses claims of racial discrimination related to preemployment testing but does not provide any substantive legal analysis or context that would aid in interpreting the statute.
+  [ID: 52edcf7e-86a1-4a52-bccd-8dd524b33c96] Reasoning: This sentence mentions the Union's lack of claims regarding the constitutionality of preemployment testing but does not provide any interpretive context or application related to the statute.
+  [ID: 114da625-a653-4705-9a45-ee54a011ca71] Reasoning: This sentence discusses the court's decision not to address the constitutionality of preemployment testing for prospective hires, but it does not provide any interpretive depth regarding the statute itself.
+  [ID: 581f3d08-ae59-4470-b9de-95c4c3bcc0ce] Reasoning: This sentence describes a company's addition of a written preemployment test but lacks any interpretive context or legal analysis that would enhance understanding of the statutory framework.
+  [ID: a96dcf72-4d6e-4653-a9ad-d029143a83bf] Reasoning: This sentence outlines a subclass of applicants based on their failure to pass preemployment tests but does not provide any legal interpretation or context relevant to the statute.
+  [ID: 190ca6a5-4919-43c6-9cac-201568ae737e] Reasoning: This sentence critiques the implementation of preemployment testing but does not provide any substantive legal analysis or context that would aid in interpreting the statute.
+  [ID: 29571b97-4db9-4c7d-b616-0de2b0c7a71d] Reasoning: This sentence describes the design of a preemployment test used by a police department but does not provide any interpretive context or legal analysis relevant to the statute.
+  [ID: 1d3eac0b-5170-422e-b8d5-8b184fb07197] Reasoning: This sentence discusses correlations between preemployment test scores and performance but lacks any interpretive context or legal analysis that would enhance understanding of the statute.
+  [ID: 8eac83b2-138c-4823-bfa5-c3be27fb25bf] Reasoning: This sentence states that an individual took several preemployment tests but does not provide any interpretive context or legal analysis relevant to the statute.
+  [ID: 8e341bfa-5fac-4bd6-9ffb-355ad18bc61d] Reasoning: This sentence raises a legal issue regarding the expansion of a charge based on a preemployment test but does not provide any substantive interpretive context or analysis related to the statute.
+  [ID: 8b54a7c3-5a6c-42b1-9293-344d85ac321a] Reasoning: This sentence discusses the validity of preemployment testing in relation to employer interests but lacks any specific legal analysis or context that would enhance understanding of the statute.
+  [ID: f540a743-8509-4981-bea1-662a33a335e6] Reasoning: This sentence lists various cases that uphold preemployment testing but does not provide any specific interpretive context or analysis that would clarify the statute's application.
+  [ID: cc2371c1-e02a-4f41-a7c6-6f02490a358f] Reasoning: This sentence references several cases related to preemployment testing but does not provide any substantive legal analysis or context that would aid in interpreting the statute.
+  [ID: ee2b40c4-5bfb-4d74-a708-e9fbfd67026f] Reasoning: This sentence states a correlation between positive preemployment test results and employment outcomes but lacks any interpretive context or legal analysis relevant to the statute.
+  [ID: 57906709-c032-4296-8dc7-5ea5117c48cd] Reasoning: This sentence discusses a study on preemployment testing but does not provide any interpretive context or legal analysis that would enhance understanding of the statute.
+  [ID: a7066ff9-9435-4c82-801a-a04df97ce238] Reasoning: This sentence critiques the necessity of universal preemployment testing but does not provide any substantive legal analysis or context that would aid in interpreting the statute.
+  [ID: 2a80718a-aea3-4809-b909-f04305496a07] Reasoning: This sentence questions the public need for universal preemployment testing but lacks any interpretive context or legal analysis relevant to the statute.
+  [ID: bbc2e593-2a49-4314-85fc-be2436fe6031] Reasoning: This sentence mentions the unclear law of preemployment testing but does not provide any substantive legal analysis or context that would aid in interpreting the statute.
+  [ID: 0dd388bb-ed0e-4b6d-a327-e489d26a9762] Reasoning: This sentence discusses job requirements and validation of preemployment tests but does not provide any interpretive context or legal analysis relevant to the statute.
+  [ID: 63f5e6cc-e241-4d7a-82e1-1efe04b8b27d] Reasoning: This sentence references a statute allowing preemployment testing in certain job contexts but does not provide any substantive legal analysis or context that would aid in interpreting the statute.
+  [ID: c3f46596-64af-4c85-8ada-c1dee77d3900] Reasoning: While it discusses the effectiveness of preemployment testing in protecting equal employment opportunity, it does not provide specific legal context or application related to the statute.
+  [ID: 0cb3e27b-3c2b-4b8e-ae0f-d4a4100cd9ab] Reasoning: This sentence discusses content validity in relation to preemployment tests but lacks specific legal context or application to the statute.
+  [ID: 11c8d605-7379-4b57-89a5-e00415243e45] Reasoning: This sentence mentions the lack of evidence for preemployment testing but does not provide any legal interpretation or application relevant to the statute.
+  [ID: 80a41e9f-2c24-4a5b-afaf-ae5568b2a4f7] Reasoning: This sentence is a direct quote from the statute regarding preemployment testing for alcohol, providing no new interpretive value.
+  [ID: 914b1de5-29d4-4cd7-a172-e192ea491944] Reasoning: This sentence describes FAA regulations requiring preemployment testing but does not provide additional context or application related to the source statute.
+  [ID: d13efb22-6822-4c46-8106-5a3d79175ce5] Reasoning: This sentence discusses comparing preemployment test scores to job performance but lacks specific legal context or application to the statute.
+  [ID: c786b424-7f3f-4a2a-81f7-b977328a44c1] Reasoning: This sentence mentions a claim regarding preemployment testing but does not provide any legal interpretation or application relevant to the statute.
+  [ID: 28283bec-ce65-4c33-b33b-eeb7596b9b4a] Reasoning: This sentence discusses a return-to-work physical as similar to a preemployment test but does not provide legal context or application to the statute.
+  [ID: 4b4ceef2-ac3e-4761-82b2-31a89e4aece2] Reasoning: This sentence is a direct quote from the statute regarding preemployment testing for alcohol, providing no new interpretive value.
+  [ID: 3b3ad4e6-90e0-467f-971b-1e45299241a2] Reasoning: This sentence discusses an argument related to psychological problems and preemployment testing but lacks specific legal context or application to the statute.
+  [ID: b19e876a-b5b1-4775-89f4-7859a0f9be58] Reasoning: This sentence is a direct quote from the statute regarding preemployment testing, providing no new interpretive value.
+  [ID: b30a6197-b8d7-44bd-b16b-18812f339ffe] Reasoning: This sentence discusses the agency's position on preemployment testing but does not provide additional context or application related to the source statute.
+  [ID: 112d29a1-98a5-4205-b27e-57543bd02be3] Reasoning: This sentence critiques the agency's belief about preemployment testing but lacks specific legal context or application to the statute.
+  [ID: d2f945a4-5217-4b39-a4eb-e1070c4feb3e] Reasoning: This sentence is a direct quote from the statute regarding preemployment testing, providing no new interpretive value.
+  [ID: 79e796ec-a0c1-4b4c-81f9-d1f5a87ea7c0] Reasoning: This sentence provides insight into the potential usefulness of preemployment tests in assessing applicants but lacks specific legal context or application to the statute.
+  [ID: a2392e2a-d474-4289-aa9a-7fe050274c0a] Reasoning: This sentence discusses the potential for violations of laws during preemployment testing but does not provide additional context or application related to the source statute.
+  [ID: a38c7ee5-db8c-4d7e-b118-b749b4fa37e4] Reasoning: This sentence expresses a view on the interpretation of 'preemployment testing' but does not provide specific legal context or application to the statute.
+  [ID: 96687031-88ef-49c9-a841-4220cb3ce689] Reasoning: This sentence discusses a petition for review related to preemployment testing but does not provide additional context or application related to the source statute.
+  [ID: 8077630c-d862-4cd2-b52c-408f27b1ef28] Reasoning: This sentence critiques the rule regarding preemployment testing but does not provide specific legal context or application to the statute.
+  [ID: b54b9acc-ab2c-4cdc-9fc3-be21e11448b5] Reasoning: This sentence is a direct quote from the statute regarding preemployment testing for alcohol, providing no new interpretive value.
+  [ID: 557e2d17-3343-40f5-be2c-ec390030c828] Reasoning: This sentence states that a claim related to preemployment testing will be dismissed but does not provide any legal interpretation or application relevant to the statute.
+  [ID: 4efffba4-fe5b-4e23-8f36-c35dbfc963e9] Reasoning: This sentence discusses the unlawful use of preemployment tests under Title VII but does not provide specific legal context or application to the statute.
+  [ID: e3bd3704-d448-445b-b9df-a874b138e918] Reasoning: This sentence references a Supreme Court case regarding preemployment testing and discrimination but lacks specific application to the statute.
+  [ID: 627dff26-1ec0-4de9-9f31-89b09bf34ef9] Reasoning: This sentence mentions the FHWA's decision to require preemployment testing based on drug use rates but does not provide additional context or application related to the source statute.
+  [ID: 230c399d-53b9-4991-ad33-9b611f680661] Reasoning: This sentence discusses a company's decision to retain only those who meet preemployment tests but lacks specific legal context or application to the statute.
 Method: probabilities | Term: preemployment testing
-NDCG@10: 0.5154828775301995
-NDCG@20: 0.5935793150112355
-NDCG@40: 0.7372397413771593
-NDCG@100: 0.8473982567205302
+NDCG@10: 0.719090358666552
+NDCG@20: 0.7235341037803944
+NDCG@40: 0.8151964941296023
+NDCG@100: 0.9040471695502263
 
 ----------------------------------------
 STDERR:
@@ -133,7 +122,7 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/3 [00:00<?, ?batch/s]
-GPT batches:  33%|███▎      | 1/3 [00:26<00:52, 26.18s/batch]
-GPT batches:  67%|██████▋   | 2/3 [00:26<00:10, 10.87s/batch]
-GPT batches: 100%|██████████| 3/3 [00:29<00:00,  7.52s/batch]
-GPT batches: 100%|██████████| 3/3 [00:29<00:00,  9.96s/batch]
+GPT batches:  33%|███▎      | 1/3 [00:42<01:24, 42.42s/batch]
+GPT batches:  67%|██████▋   | 2/3 [00:44<00:18, 18.76s/batch]
+GPT batches: 100%|██████████| 3/3 [00:46<00:00, 11.09s/batch]
+GPT batches: 100%|██████████| 3/3 [00:46<00:00, 15.53s/batch]

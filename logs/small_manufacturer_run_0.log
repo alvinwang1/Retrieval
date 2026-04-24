@@ -1,4 +1,4 @@
-Command: /opt/anaconda3/bin/python rank.py --term small manufacturer --type probabilities --sentences sources/small_manufacturer/small_manufacturer-sentence.json --provisions sources/provisions.json --verbose false
+Command: /opt/anaconda3/bin/python rank.py --term small manufacturer --type probabilities --sentences sources/small_manufacturer/small_manufacturer-sentence.json --provisions sources/provisions.json --verbose false --prompt system_prompts/zero_shot.txt
 ----------------------------------------
 You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
 
@@ -13,17 +13,17 @@ A list of candidate sentences, each with a unique sentence_id
 Your classification must consider both the phrase of interest and the statute.
 If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
 
-✅ OUTPUT FORMAT (STRICT)
+✅ OUTPUT FORMAT (STRICT) - PROBABILITIES MODE
 
-Return ONLY a JSON array, nothing else:
+Return ONLY a JSON array of objects. Each object must include a "reasoning" field and a "probs" field with probabilities for each class:
 
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "...",
+    "reasoning": "...",
+    "probs": {"no value": 0.1, "potential value": 0.2, "certain value": 0.3, "high value": 0.4}
+  }
 ]
-
-
-No explanations, no comments, no reasoning, no additional keys.
 
 ✅ CLASSIFICATION LABELS
 
@@ -121,11 +121,455 @@ Always choose the lowest plausible label when uncertain.
 
 The goal is interpretive usefulness, not relevance to the case as a whole.
 
+  [ID: 49cd638f-0d9d-4724-98d6-0bca50943824] Reasoning: This sentence consists of citations and references to legal literature and cases without providing any interpretive information about the term 'small manufacturer' as defined in the statute. It does not elaborate on the meaning of the phrase or relate to its definition.
+  [ID: 0cbb5b77-6c38-4abd-be6c-4d7f0c878597] Reasoning: This sentence discusses the implications of fairness in the context of a small manufacturer compared to a large manufacturer, which provides some interpretive context regarding the challenges faced by small manufacturers. However, it does not define or elaborate on the statutory definition of 'small manufacturer' directly, making it less than certain value.
+  [ID: a601c63f-8230-4c83-8065-17261054223c] Reasoning: This sentence identifies Sterling as a small manufacturer but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 8af91e8f-7743-49d0-a70d-039c08cad344] Reasoning: This sentence mentions a small manufacturer but does not elaborate on the meaning of the term as defined in the statute.
+  [ID: cd47542d-3ed3-46df-a1fe-a2d353c01066] Reasoning: This sentence discusses the knowledge of a CEO regarding FDA requirements for small manufacturers, which implies some context but does not directly interpret the statutory definition of 'small manufacturer'.
+  [ID: 5f889f36-bd1c-48f8-94de-9225d2c75550] Reasoning: Similar to the previous sentence, this one discusses knowledge about requirements for small manufacturers but does not provide a direct interpretation of the term as defined in the statute.
+  [ID: f7d6a54d-7fa2-41f4-96ef-809bfadb1f10] Reasoning: This sentence discusses the influence of a regional company on a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 4fd760cd-037b-4bcf-b4b4-d6e9223e83a7] Reasoning: This sentence refers to small manufacturers of tobacco but does not elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 82751383-b2e6-4fdb-898e-be03676e4d86] Reasoning: This sentence discusses retailers' preferences for smaller manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 5a98cce0-c1fe-40cb-85c8-1d931b9f9955] Reasoning: This sentence discusses the impact of Post's acquisition on smaller manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 7d8906a5-d981-47e1-a7fc-acfd024d5cdd] Reasoning: This sentence mentions small manufacturers in relation to the ASR but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 77ce6e20-9458-467d-931e-7c414a83fbd5] Reasoning: This sentence identifies Seeker as a small manufacturer but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: dd591077-a26f-4fa8-957b-aa105030826d] Reasoning: This sentence discusses the economic challenges faced by smaller manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 784baac2-c9a6-485c-8ca6-5f68df31a4c3] Reasoning: This sentence discusses the competitive challenges faced by smaller manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 65235435-c595-4ffd-ba09-5878ebf61313] Reasoning: This sentence implies that smaller manufacturers will be negatively affected but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 85e84af5-d238-49d4-92b1-6798ff94a382] Reasoning: This sentence discusses jury attribution of responsibility to smaller manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: b11c0540-cb5c-4ff0-838b-d8933bceb91b] Reasoning: This sentence discusses actions against small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: ed33b71a-bf6e-4745-ab0f-0acb150bbff5] Reasoning: This sentence discusses alleged actions against small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 28be267f-4acf-4ad5-ade8-5a1b331adfdb] Reasoning: This sentence mentions smaller manufacturers in the context of the Price-Anderson Act but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: e05eb93f-b62b-40fc-a04a-03e411d1aac7] Reasoning: This sentence identifies Bates & Bacon as a small manufacturer but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 5a360dd2-daba-4fd2-8a37-f75f24da6bd1] Reasoning: This sentence discusses NHTSA's authority to exempt small manufacturers from CAFE standards but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: b29997f5-cc1f-402a-87c0-5134384442db] Reasoning: This sentence describes a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 821eb43a-a7b7-4fdc-bbe0-ee39f5bf7862] Reasoning: This sentence discusses the practices of small manufacturers in the women's apparel business but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 4e72e37d-cf8c-4621-8351-92ec6338c0e3] Reasoning: This sentence discusses the challenges faced by small manufacturers regarding wage increases but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: d5ee1331-e604-4225-934d-ace27b4a3270] Reasoning: This sentence discusses the competitive practices of AT&T and mentions small manufacturers but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: b5a80b00-02dc-4ccb-83ed-212e0c27a3ca] Reasoning: This sentence references a court case involving a small manufacturer but does not elaborate on the definition or meaning of 'small manufacturer' as per the statute.
+  [ID: 62dae260-3931-4e08-81a6-eeee1d2fe971] Reasoning: This sentence mentions small manufacturers in the context of insurance premiums but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 2d70262f-6236-408f-9286-c0cb6003c4c0] Reasoning: This sentence discusses market dynamics involving small manufacturers but does not clarify or interpret the statutory definition of 'small manufacturer'.
+  [ID: 5c88592e-a2e8-4f13-bc64-d498924da56d] Reasoning: This sentence discusses market trends affecting small manufacturers but does not provide any interpretive information about the term as defined in the statute.
+  [ID: a7138cb5-d3bf-4fa3-a6ac-3e78265f5c0f] Reasoning: This sentence mentions harm to small manufacturers but does not elaborate on the definition or meaning of 'small manufacturer' as per the statute.
+  [ID: 5673ec4d-4a75-4eea-b91d-52d57ab6f348] Reasoning: This sentence discusses sales data related to small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 4e56bddc-c584-448c-9f5a-3ab1645d6d77] Reasoning: This sentence discusses causation related to small manufacturers but does not clarify or interpret the statutory definition of 'small manufacturer'.
+  [ID: d417b72f-dc58-41e7-a368-8fbaa072f6d0] Reasoning: This sentence provides market share data for small manufacturers but does not elaborate on the definition or meaning of 'small manufacturer' as per the statute.
+  [ID: 2cbc3229-9782-47dd-b3ec-f7fc85f9f7ce] Reasoning: This sentence discusses anecdotal evidence regarding small manufacturers but does not provide any interpretive information about the term as defined in the statute.
+  [ID: afdbfad3-a58c-43a7-aadd-98643156419e] Reasoning: This sentence mentions concerns about small manufacturers but does not elaborate on the definition or meaning of 'small manufacturer' as per the statute.
+  [ID: d844ae92-f18e-4a71-927b-59aba9fbec53] Reasoning: This sentence discusses a specific small manufacturer and its operations but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: b2329003-c728-400c-aaa0-26c0d02ba236] Reasoning: This sentence discusses the production of cigarettes by smaller manufacturers but does not clarify or interpret the statutory definition of 'small manufacturer'.
+  [ID: 288b2ef0-545d-49fd-9924-6bc052c123ed] Reasoning: This sentence mentions a small manufacturer and its acquisition but does not provide any interpretive information about the term as defined in the statute.
+  [ID: 962cd7ed-e325-48ed-9f33-899096f1e187] Reasoning: This sentence identifies a corporation as a small manufacturer but does not elaborate on the definition or meaning of 'small manufacturer' as per the statute.
+  [ID: 2ca56f28-6f56-44d7-9e72-ce258adcb99d] Reasoning: This sentence discusses the production of fourth-tier brands by smaller manufacturers but does not clarify or interpret the statutory definition of 'small manufacturer'.
+  [ID: 094208ef-210f-43e1-811b-8cb5f70e25d4] Reasoning: This sentence discusses a minimum requirement for small manufacturers to obtain government contracts but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 6d1dd2f3-0863-4788-a271-eac63965a4b0] Reasoning: This sentence mentions a small manufacturer and its agreement but does not elaborate on the definition or meaning of 'small manufacturer' as per the statute.
+  [ID: f1768962-c7da-4cfa-bbdb-56ee189487a6] Reasoning: This sentence discusses a small manufacturer in the context of competition but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: f3b36f10-8895-4d2b-86dd-9e7e789e2b31] Reasoning: This sentence discusses the technological disadvantages faced by small manufacturers but does not clarify or interpret the statutory definition of 'small manufacturer'.
+  [ID: f7e5f280-0aef-4e93-ba4f-e4df8e9ff13c] Reasoning: This sentence references the language in a section related to small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: eb3527a2-1ab7-434c-aed1-2a3262e4844e] Reasoning: This sentence discusses an amendment related to small manufacturers but does not elaborate on the definition or meaning of 'small manufacturer' as per the statute.
+  [ID: f6057a7c-eeba-4a3d-a214-6e27485371f7] Reasoning: This sentence discusses a problem faced by small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 26a7aded-7c99-439f-86e8-aed38187361b] Reasoning: This sentence discusses jurisdictional concerns related to small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 80d07a02-6e97-4c5f-80cd-3099b24f4393] Reasoning: This sentence states that a specific entity is not a small manufacturer but does not elaborate on the definition or criteria for being classified as one.
+  [ID: 998cf3cb-a55f-4324-892d-7f7f214a360e] Reasoning: This sentence mentions concerns about negligence standards for small manufacturers but does not clarify or define what constitutes a small manufacturer according to the statute.
+  [ID: e20f1a33-7bab-46b9-a070-0e77e8bdecd3] Reasoning: This sentence discusses the protection of small manufacturers from powerful rivals but does not provide a definition or criteria for what constitutes a small manufacturer.
+  [ID: 7748f789-0b58-4a37-ba15-897977671b48] Reasoning: This sentence reflects on the challenges faced by small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: 8a434d29-f553-4cf1-a995-143e6a5595bb] Reasoning: This sentence discusses the potential acquisition of small manufacturers by larger ones but does not clarify the definition of 'small manufacturer'.
+  [ID: 6fd2862b-217b-48bd-b466-f2bec1a0f838] Reasoning: This sentence describes failed attempts to coordinate among smaller manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: 30289daf-e009-432c-b747-f66867be548f] Reasoning: This sentence discusses the challenges small manufacturers face in obtaining insurance but does not provide a definition or criteria for being classified as a small manufacturer.
+  [ID: d55c4cec-f05a-4cd2-850d-6deaa1d702e3] Reasoning: This sentence discusses liability issues for small manufacturers but does not clarify or define what constitutes a small manufacturer according to the statute.
+  [ID: 833e06df-240c-4dca-90d9-825d5777b263] Reasoning: This sentence discusses the court's view on liability for small manufacturers but does not provide a definition or criteria for what constitutes a small manufacturer.
+  [ID: a736c81a-c010-4ebe-ba8d-4fbdbf41acc8] Reasoning: This sentence discusses the impact of strict liability on small manufacturers but does not clarify the definition of 'small manufacturer'.
+  [ID: 1f5d4c82-8fa5-4772-ab70-51e4914486a6] Reasoning: This sentence references a legal commentary but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 0a0057c8-4d10-41b2-a05d-ea4f8eea194f] Reasoning: This sentence identifies a specific company as a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: c11f87a9-e6ef-44c3-9de9-eb63c96ecbcc] Reasoning: This sentence describes a company's operations as a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: a8de9386-0fa6-4b6c-a515-cd7d31d0f652] Reasoning: This sentence discusses profit margins for small manufacturers but does not clarify or define what constitutes a small manufacturer according to the statute.
+  [ID: 29b5785f-821b-4a44-9753-6df7a2387afd] Reasoning: This sentence discusses the implications of corporate acquisitions on small manufacturers but does not provide a definition or criteria for what constitutes a small manufacturer.
+  [ID: 24b7d1cc-7253-4b6f-ab16-44c301ff22ec] Reasoning: This sentence discusses the law's protection of small manufacturers from powerful rivals but does not provide a definition or criteria for what constitutes a small manufacturer.
+  [ID: 8cfe2929-d1db-4c9f-8733-e878348177b2] Reasoning: This sentence is a repetition of a previous sentence discussing the law's regard for small manufacturers without adding new interpretive information.
+  [ID: ba5872f5-3569-4c50-ac2a-445e48a1f896] Reasoning: This sentence describes actions consistent with a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 31934488-e232-4120-ad70-01bdb7df9891] Reasoning: This sentence discusses property classification relevant to small manufacturers but does not provide a definition or criteria for what constitutes a small manufacturer.
+  [ID: ce16215a-8f11-40eb-b1b3-6a0e5091f84b] Reasoning: This sentence describes a business selling to small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 4384b91e-75e7-4137-b13f-2648c060c5d3] Reasoning: This sentence characterizes a business in relation to small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: bd41535f-96f6-4395-9aee-f74661f578db] Reasoning: This sentence discusses the competitive position of smaller manufacturers but does not clarify or define what constitutes a small manufacturer according to the statute.
+  [ID: 2bdc0d5d-059d-4bfc-a6fa-30d751352d24] Reasoning: This sentence identifies a specific company as a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 195321ee-8089-4356-8275-19576f0f371a] Reasoning: This sentence discusses small manufacturers in a different context (exportation) and characterizes them as 'small factories, hand workers,' which does not directly relate to the statutory definition of 'small manufacturer'.
+  [ID: f378d20d-861c-4882-8308-97dd68ae940f] Reasoning: This sentence discusses a smaller manufacturer in the context of a trademark dispute, but it does not provide any interpretive information about the statutory term 'small manufacturer'.
+  [ID: 33722b56-6453-4c52-aa76-05552380aec3] Reasoning: This sentence mentions an association of small manufacturers but does not elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 143d094d-f64e-4240-bf6b-f65214d16257] Reasoning: This sentence refers to a small manufacturer in a specific industry but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 093b2130-0c58-479e-96ab-ce7d42de4ccd] Reasoning: This sentence mentions smaller manufacturers but does not provide any new interpretive information about the statutory term 'small manufacturer'.
+  [ID: f602b1dd-4926-4e38-b26a-1c546fda421a] Reasoning: This sentence discusses the financial practices of small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 6102d805-e288-4760-a93f-747ff5664e1c] Reasoning: This sentence discusses small manufacturers in the context of machinegun registration but does not provide interpretive information about the statutory term 'small manufacturer'.
+  [ID: fadee47f-4313-4f0e-87a4-c4b8065b6479] Reasoning: This sentence refers to a smaller manufacturer of plush toys but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: c1078e81-fb08-4f45-b961-bf83c3762479] Reasoning: This sentence contrasts the treatment of large and small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: c4156ef9-7f69-4bab-b569-bb28f4fe612e] Reasoning: This sentence provides specific information about a defendant identified as a small manufacturer, including employee count, but does not elaborate on the statutory definition of 'small manufacturer'.
+  [ID: ae786017-1f91-4c10-9f3e-c12b5d775258] Reasoning: This sentence discusses the impact of advertising allowances on small manufacturers but does not provide interpretive information about the statutory term 'small manufacturer'.
+  [ID: 5b815cf9-adda-4a6c-b380-b6fd06c0572c] Reasoning: This sentence is a repeat of the previous one and does not add any new interpretive information.
+  [ID: aa5361dc-e8e2-406c-a61f-f9ab0af85a75] Reasoning: This sentence discusses financial practices of small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 217ae28a-79c9-4b9b-b6a4-de1adad6c57c] Reasoning: This sentence contrasts the treatment of large and small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: ccab5fde-e783-4482-8e73-a483ecb6a910] Reasoning: This sentence discusses the implications of the law on small manufacturers but does not provide interpretive information about the statutory term 'small manufacturer'.
+  [ID: ddb169b5-692a-401c-98fa-5df78e30aa6d] Reasoning: This sentence discusses the actions of a small manufacturer in relation to consumer rights but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 62f640a7-e95f-479a-bf3b-09491ef77d6a] Reasoning: This sentence mentions small manufacturers and importers but does not provide any new interpretive information about the statutory term 'small manufacturer'.
+  [ID: 0fca089d-2821-4768-a79b-2a5397ef8048] Reasoning: This sentence discusses small manufacturers in the context of market share but does not provide interpretive information about the statutory term 'small manufacturer'.
+  [ID: 401f6271-1ee5-4aa4-a06a-1a6555d3a631] Reasoning: This sentence identifies a defendant as a small manufacturer but does not elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 492a90db-419d-4eae-aaf7-8a5e86b7d9dd] Reasoning: This sentence discusses the acquisition of a small manufacturer but does not provide interpretive information about the statutory term 'small manufacturer'.
+  [ID: a9aab170-c888-4476-a354-52c6663ee22d] Reasoning: This sentence provides an example of a small manufacturer but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 600b06f1-8286-4b0a-b3a2-37ece0c4a37a] Reasoning: This sentence discusses the coercion of smaller manufacturers but does not provide interpretive information about the statutory term 'small manufacturer'.
+  [ID: c74baa86-0ec4-4f2d-bc0f-adfb3f54c968] Reasoning: This sentence discusses post-sale duties related to small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: fad61b17-de56-4023-bb4a-36e8184a44dc] Reasoning: This sentence discusses the potential impact on small manufacturers without adequate capital but does not provide interpretive information about the statutory term 'small manufacturer'.
+  [ID: bd13a843-db86-4508-a8a6-1a9412bb7b26] Reasoning: This sentence mentions small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 8d9a5259-cc89-4d0a-9e64-c75a9df2abbc] Reasoning: This sentence identifies a specific small manufacturer but does not elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 9d32ddef-b85a-4801-abb8-998a732457a7] Reasoning: This sentence discusses the enforcement of a standard affecting small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 31ef3c71-1dde-4b96-a728-d4ab3ba24f08] Reasoning: This sentence mentions small manufacturers in the context of an antitrust claim but does not provide any interpretive information about the statutory definition.
+  [ID: c67c1f5c-97ac-4cb8-948d-fe508d0954d7] Reasoning: This sentence discusses the competitive landscape for smaller manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: f1f38440-4e37-40b8-8a53-69fa3425f803] Reasoning: This sentence mentions small manufacturers in relation to conversion costs but does not provide interpretive information about the statutory definition.
+  [ID: 23f95004-9274-4f63-9727-ef976a228504] Reasoning: This sentence describes a transaction involving a small manufacturer but does not elaborate on the statutory definition of 'small manufacturer'.
+  [ID: fe0584f8-a2e8-4984-bbbb-8ff8ac3f7f74] Reasoning: This sentence discusses a merger involving smaller manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: f876e0f4-ddce-468e-bafe-d82b404c1881] Reasoning: This sentence compares Wilson's figures with those of a small manufacturer but does not provide interpretive information about the statutory definition.
+  [ID: 6cec5387-733d-4f30-a63c-64b109f74d5c] Reasoning: This sentence discusses risks for small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 12511093-e9b6-4bf4-8ccf-4200ff05e88f] Reasoning: This sentence is a repeat of the previous one and does not add any new interpretive information.
+  [ID: f3e6b61c-be34-457f-adcb-29cc6606c307] Reasoning: This sentence discusses potential outcomes for small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 042537e2-61a8-45e5-9cae-7744f8fd5142] Reasoning: This sentence identifies a specific small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: e0170885-6fb5-4ee3-a5cb-d1e9c3f01cdf] Reasoning: This sentence describes a situation involving a small manufacturer but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 0d3af040-9e9b-4f11-83e9-b57b03fda710] Reasoning: This sentence discusses penalties for small manufacturers but does not provide interpretive information about the statutory definition.
+  [ID: c35b797e-8d1b-4dae-919c-bd72216a924f] Reasoning: This sentence discusses risks faced by small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 8a6350e1-afe1-4d78-99d1-1fa4ee855cd7] Reasoning: This sentence identifies a specific small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: b68f771f-7d0a-45af-889d-fdeaa48c6eff] Reasoning: This sentence mentions a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 5e313ec4-2e26-41e3-93c3-c9ec88b9460b] Reasoning: This sentence discusses an agreement involving a small manufacturer but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: ff428042-c892-43f4-9bd9-8720eff96a67] Reasoning: This sentence discusses competition from smaller manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 4870b3d0-8f20-4220-bec9-9652de78a64c] Reasoning: This sentence mentions a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 3dddbde8-11fc-476d-8256-1ca427ad9f92] Reasoning: This sentence mentions small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: 422eb369-8237-48ed-921e-85a376a6ff77] Reasoning: This sentence mentions small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: 6597389d-60a0-4a8c-9776-9b5bac09c122] Reasoning: This sentence discusses a unique situation for a small manufacturer but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: d1341b9e-a115-49ac-9fbc-29a6048b54b1] Reasoning: This sentence mentions comments about small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: cd43ed7b-fd24-4116-ad08-5c4d54776cfa] Reasoning: This sentence describes a location that provides space to small manufacturers but does not elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: f205c6e7-d3f0-41dc-a8a8-d81bd5212513] Reasoning: This sentence discusses the implications of a legal decision on small manufacturers but does not define or clarify the term 'small manufacturer' itself.
+  [ID: ab5b93d8-f590-445d-a38e-e08e086535cb] Reasoning: This sentence cites a case and discusses the challenges faced by small manufacturers but does not provide a definition or interpretive meaning of the term as used in the statute.
+  [ID: d00f39a5-4df6-46e1-8f05-d91d63748ccf] Reasoning: This sentence references a court's conclusion about liability for manufacturers but does not clarify the definition of 'small manufacturer' as per the statute.
+  [ID: c72cbada-fb81-4889-af13-7bd24ec3fee1] Reasoning: This sentence mentions small manufacturers in a historical context but does not provide any interpretive information about the statutory definition.
+  [ID: 432c10ee-344d-4f29-93eb-1c92053f528a] Reasoning: This sentence indicates that the appellant does not manufacture garments but consolidates for smaller manufacturers, which does not clarify the statutory definition of 'small manufacturer.'
+  [ID: 39613506-cdce-4e75-bba8-39fa3a64b02e] Reasoning: This sentence describes a legal case involving small manufacturers but does not provide any interpretive meaning regarding the term as defined in the statute.
+  [ID: 107e8e21-dee0-43a2-8040-20e8a1a89563] Reasoning: This sentence discusses a limitation imposed on manufacturers but does not elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 1e1c0a9c-48ed-4f53-a214-861b7fdd385e] Reasoning: This sentence discusses various aspects of business related to small manufacturers but does not clarify the statutory definition of 'small manufacturer.'
+  [ID: a022d77f-b85c-492e-8ddd-f8666eb39dae] Reasoning: This sentence discusses a transaction involving a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 3d93ca2e-f814-4a74-8641-27287b9d2f55] Reasoning: This sentence discusses the implications of knowledge regarding insolvency in relation to a small manufacturer but does not clarify the statutory definition.
+  [ID: 84096b85-36e4-409a-9559-c701cb4e76fc] Reasoning: This sentence discusses knowledge of a small manufacturer's situation but does not provide any interpretive meaning regarding the term as defined in the statute.
+  [ID: d680dc70-eb07-42d7-b73f-60c80b2e3b60] Reasoning: This sentence provides historical context about small manufacturers but does not clarify the statutory definition of 'small manufacturer.'
+  [ID: 57015c93-01f3-44fe-8acf-a35d31503f7d] Reasoning: This sentence discusses the production capabilities of smaller manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: d80deb8f-e1aa-4adf-a7ba-ffd99a671c0a] Reasoning: This sentence mentions a loft building rented to small manufacturers but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: b4d74679-0a1e-4856-b6f3-fd85caa633ea] Reasoning: This sentence discusses the challenges faced by small manufacturers but does not provide a definition or interpretive meaning of the term as used in the statute.
+  [ID: 5fa4e62a-a9be-405e-9ba8-3f648f50a44d] Reasoning: This sentence discusses the difficulties small manufacturers face in obtaining insurance but does not clarify the statutory definition of 'small manufacturer.'
+  [ID: eb026d69-eb7f-4eb0-8da4-601df217124d] Reasoning: This sentence cites legal literature but does not provide any interpretive information about the statutory definition of 'small manufacturer.'
+  [ID: b2ec308b-2117-481c-b618-22ea3b7ec7a0] Reasoning: This sentence discusses the impact of legal rules on small manufacturers but does not clarify the statutory definition of 'small manufacturer.'
+  [ID: 3ae365c8-9b32-44c3-b08f-fe6b9bdfce8d] Reasoning: This sentence discusses problems faced by small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: b68676dc-b230-4694-bde8-7d1c67e67476] Reasoning: This sentence describes a contractual agreement involving a small manufacturer but does not clarify the statutory definition of 'small manufacturer.'
+  [ID: be338c7c-a5d9-4703-b8ae-6ae2195faed8] Reasoning: This sentence discusses a small manufacturer in a historical context but does not provide any interpretive information about the statutory definition.
+  [ID: a87a1881-6174-4676-8556-aafa86d9f899] Reasoning: This sentence discusses the context of a legal opinion but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: d8bf5535-662d-457a-9f55-3fbb5189599e] Reasoning: This sentence discusses sample cabinets sent to small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: 06e8e6ca-96c4-46e9-8ee3-b2d914f40c04] Reasoning: This sentence discusses the purpose of an exemption for small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: 349a64e6-e075-4b18-b0a1-f08de021f6c0] Reasoning: This sentence describes actions taken by Malina and Gutner in relation to small manufacturers but does not clarify or define what constitutes a small manufacturer.
+  [ID: e5396dcc-d599-4ed7-aa90-bd0078b1b489] Reasoning: This sentence references small manufacturers in the context of a court case but does not provide any interpretive information about the term itself.
+  [ID: 065aa8ee-1b4d-4156-8ed6-02ba15a795f1] Reasoning: This sentence discusses the strategic decisions of small manufacturers in a legal context but does not elaborate on the definition or meaning of 'small manufacturer'.
+  [ID: ee2e634b-2d15-44f5-8bb3-b38d649ab048] Reasoning: This sentence mentions small manufacturers in relation to licensees but does not provide any new information about the term itself.
+  [ID: 75508a1d-f433-4f39-8569-bacaab999031] Reasoning: This sentence questions the classification of manufacturers but does not provide any interpretive information about what constitutes a small manufacturer.
+  [ID: ef5c5366-0d08-42c7-b0a6-661af8d8a5e3] Reasoning: This sentence discusses the legal status of small manufacturers in relation to firearms but does not clarify the definition of 'small manufacturer'.
+  [ID: b1bf579b-8afa-416e-ada3-9af21750382b] Reasoning: This sentence compares market shares but does not provide any interpretive information about the term 'small manufacturer'.
+  [ID: a37f90d4-a7e3-4207-a6b7-53d9de7b1fcd] Reasoning: This sentence describes the emergence of small manufacturers but does not provide a definition or elaboration on the term itself.
+  [ID: 7ad85392-9867-4989-92a3-d3685b7881a1] Reasoning: This sentence suggests that small manufacturers could have competed but does not provide any interpretive information about the term 'small manufacturer'.
+  [ID: 36aa3abe-324d-4d86-9942-eaa8cf0fefe0] Reasoning: This sentence discusses the efforts of small manufacturers to compete but does not clarify or define what constitutes a small manufacturer.
+  [ID: e4a8a118-f35e-48db-a22e-0c31d0ef7ea9] Reasoning: This sentence identifies a specific small manufacturer but does not provide any interpretive information about the term itself.
+  [ID: 8e9abe46-82cf-45c6-9624-5f9d02bdd868] Reasoning: This sentence describes a small manufacturer in a specific industry but does not provide a definition or elaboration on the term itself.
+  [ID: fa26e368-174c-4098-bff4-053aa19a3bbe] Reasoning: This sentence discusses legislative action in response to small manufacturers' hardships but does not clarify the definition of 'small manufacturer'.
+  [ID: 05176dc6-ba0e-4c1b-b66c-3d0ef4533f61] Reasoning: This sentence discusses reliance on a supplier but does not provide any interpretive information about the term 'small manufacturer'.
+  [ID: 8e0cb96f-a524-43bb-9c00-7d9b1e9ce0ed] Reasoning: This sentence describes a competitive scenario involving small manufacturers but does not clarify or define what constitutes a small manufacturer.
+  [ID: 7c2d0fcb-46b3-46e7-ae1a-444ab8de3ee2] Reasoning: This sentence discusses a legal case involving a small manufacturer but does not provide any interpretive information about the term itself.
+  [ID: 94e4b355-749c-44e4-8ada-814269da7fde] Reasoning: This sentence discusses a minimum requirement for small manufacturers but does not clarify the definition of 'small manufacturer'.
+  [ID: 069a3b33-a2cf-4534-b139-7dcdd3d7f117] Reasoning: This sentence provides statistical data about manufacturers but does not provide a definition or elaboration on the term 'small manufacturer'.
+  [ID: 852810b8-59a5-40c3-a92c-660d1bf9c7c3] Reasoning: This sentence identifies a specific small manufacturer but does not provide any interpretive information about the term itself.
+  [ID: fc6eeaee-2fd8-43bb-a826-018a00a45025] Reasoning: This sentence discusses the prosecution of a small manufacturer but does not clarify the definition of 'small manufacturer'.
+  [ID: 05be76a8-bd1b-40d8-85d9-37779b814d32] Reasoning: This sentence discusses a regulatory position but does not provide any interpretive information about the term 'small manufacturer'.
+  [ID: 65809657-eecb-4e77-8041-daee3842300d] Reasoning: This sentence discusses a manual used in a regulatory context but does not provide any interpretive information about the term 'small manufacturer'.
+  [ID: 784122e4-3f37-4ee4-9408-93b167295410] Reasoning: This sentence describes experiences with smaller manufacturers but does not provide any interpretive information about the term itself.
+  [ID: 82d391fb-6b42-4a06-a088-cb5acd6eb219] Reasoning: This sentence discusses pricing strategies related to smaller manufacturers but does not clarify the definition of 'small manufacturer'.
+  [ID: 5b628cc0-b800-4054-b68b-231d3769f8d7] Reasoning: This sentence identifies Electri-Flex as a small manufacturer but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 4af70163-dedc-4aa8-9019-60d66d2f976a] Reasoning: This sentence mentions a small manufacturer but does not elaborate on the meaning of the term as defined in the statute.
+  [ID: ed103f34-0eca-4fce-93a2-4142828e0b4b] Reasoning: This sentence discusses smaller manufacturers in a context unrelated to the statutory definition of 'small manufacturer', providing no interpretive value.
+  [ID: fb27d6be-1997-45a0-9ef5-9183c5da4574] Reasoning: This sentence refers to small manufacturers in a general context without providing any specific interpretive information about the statutory term.
+  [ID: 67e415a5-44a3-4556-bb17-06a4e88fa160] Reasoning: This sentence discusses smaller manufacturers in relation to competition but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 10e8630e-1d7a-4743-baaf-6da0fbab72b8] Reasoning: This sentence mentions small manufacturers in a context that does not provide any interpretive information about the statutory term.
+  [ID: a4f41a3f-5047-4bb9-a131-00385375a9ee] Reasoning: This sentence identifies Getto & Getto as a small manufacturer but does not provide any interpretive information about the term as defined in the statute.
+  [ID: f79426f2-fd21-455b-977a-806e4669b089] Reasoning: This sentence discusses the smaller manufacturer in a context that does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 9361193c-1623-4f8d-94d8-c7d8a078db6a] Reasoning: This sentence mentions smaller manufacturers but does not provide any interpretive information about the statutory term.
+  [ID: dceedc83-805a-4874-8452-60ec43a447d2] Reasoning: This sentence identifies two small manufacturers but does not provide any interpretive information about the term as defined in the statute.
+  [ID: b526ed02-5880-403a-8b86-722359da5ae1] Reasoning: This sentence discusses small shoe manufacturers in a broader context without providing any interpretive information about the statutory term 'small manufacturer'.
+  [ID: d392c75b-9f45-4dc4-b47d-7f21806a3a1e] Reasoning: This sentence mentions small manufacturers but does not provide any interpretive information about the statutory term.
+  [ID: 708b4df4-e4a5-4c46-a473-645b06d101ad] Reasoning: This sentence discusses the value of patents to small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 3165aba6-fe60-4742-bfa8-2d599b1ab368] Reasoning: This sentence discusses the impact of retail rates on small manufacturers but does not provide any interpretive information about the statutory term.
+  [ID: df4f276f-1fa3-4be4-ba4e-5bb28cd0e3ab] Reasoning: This sentence mentions small manufacturers in a legal context but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 12e11ecd-932f-4603-92f1-6a28120f1476] Reasoning: This sentence discusses the effects of price changes on smaller manufacturers but does not provide any interpretive information about the statutory term.
+  [ID: aae076b5-4932-4210-9a54-9a372f4d8f16] Reasoning: This sentence mentions smaller manufacturers in a context that does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: be92e702-8de0-438b-b4e9-f182234f992a] Reasoning: This sentence discusses smaller manufacturers in relation to a contract but does not provide any interpretive information about the statutory term.
+  [ID: 6b6cbd97-5b1a-4fc4-a4c1-d2f67bbfca85] Reasoning: This sentence references small manufacturers in a citation context without providing any interpretive information about the statutory term.
+  [ID: 6809433c-4dd9-4100-ab1e-a6cf901abcf3] Reasoning: This sentence is a citation and does not provide any interpretive information about the statutory term 'small manufacturer'.
+  [ID: 6a131c00-1b88-469b-ae52-6b9ee7bffbc9] Reasoning: This sentence identifies Schulze as a small manufacturer but does not provide any interpretive information about the term as defined in the statute.
+  [ID: cd348ab0-782b-4096-9e9a-beef7accb0c8] Reasoning: This sentence discusses territorial restrictions imposed by a small manufacturer but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 14f87e71-4719-4f8e-9d8b-00429f19dfb7] Reasoning: This sentence discusses the purchase of peace for small manufacturers but does not provide any interpretive information about the statutory term.
+  [ID: 157b9023-57f6-403d-bf05-085f42dcb4d5] Reasoning: This sentence discusses protection afforded to small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: a91a41a0-cf01-4c79-8f23-4d0dcc295b4f] Reasoning: This sentence discusses business dealings with small manufacturers but does not provide any interpretive information about the statutory term.
+  [ID: ec636994-5ae2-4708-a2e0-e534d1f051df] Reasoning: This sentence discusses regulations related to NOx emissions from vehicles produced by small manufacturers but does not provide any interpretive information about the term 'small manufacturer' itself.
+  [ID: c25635c6-066b-4057-8514-ad52df2cfbd9] Reasoning: This sentence mentions NOx emissions for vehicles produced by small manufacturers but does not elaborate on the definition or meaning of 'small manufacturer'.
+  [ID: 213b4c2a-eb48-40cc-83ed-e82c2b9c1dad] Reasoning: This sentence states that Congress mandates a lead period for small manufacturers but does not provide any new interpretive information about what constitutes a 'small manufacturer'.
+  [ID: 82763055-2d04-4e09-bf2a-1cda20eb47e1] Reasoning: This sentence discusses the implications of state standards on small manufacturers but does not clarify or elaborate on the definition of 'small manufacturer'.
+  [ID: 2116b4d1-3c00-43f6-bc9f-3a7b12b290c3] Reasoning: This sentence describes a relationship involving small manufacturers but does not provide any interpretive information about the term itself.
+  [ID: a1582a98-511e-4e69-8c99-bbeaa53df53e] Reasoning: This sentence mentions a small manufacturer involved in a legal action but does not provide any interpretive information about the term 'small manufacturer'.
+  [ID: 7388d801-b991-4236-94d0-9b18fa66ec51] Reasoning: This sentence discusses the existence of smaller manufacturers but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 725809ad-11b1-456c-98d8-4babb8cf50aa] Reasoning: This sentence refers to smaller manufacturers being exempt from certain requirements but does not clarify the definition of 'small manufacturer'.
+  [ID: 66acf627-6ae3-4216-beae-30c0b98b6477] Reasoning: This sentence discusses a defense involving a small manufacturer but does not provide any interpretive information about the term itself.
+  [ID: f53fb04c-bbe3-4da6-bcdb-4d0b57dba917] Reasoning: This sentence mentions smaller manufacturers producing a specific type of plumbing equipment but does not elaborate on the definition of 'small manufacturer'.
+  [ID: 5d8d9bf3-087b-48ff-9f53-81c668c7f0a8] Reasoning: This sentence describes the products of smaller manufacturers but does not provide any interpretive information about the term 'small manufacturer'.
+  [ID: 1a7c0bb2-72d9-4957-a315-868af42f13ab] Reasoning: This sentence discusses the distribution of products from major and smaller manufacturers but does not clarify the definition of 'small manufacturer'.
+  [ID: e58db7a7-5a9c-4748-8fb1-246b10a8b8a4] Reasoning: This sentence mentions a group of smaller manufacturers but does not provide any interpretive information about the term 'small manufacturer'.
+  [ID: 484f1800-23d6-4b16-b044-5303b8ad3833] Reasoning: This sentence discusses new recording stars cutting records on the labels of small manufacturers but does not provide any interpretive information about the term itself.
+  [ID: 64e6986d-8242-4ad4-b025-96b80bfe0b5f] Reasoning: This sentence discusses licensing agreements with smaller manufacturers but does not clarify the definition of 'small manufacturer'.
+  [ID: 958b751a-a84f-417b-b812-de95e76794bd] Reasoning: This sentence refers to persons other than small manufacturers but does not provide any interpretive information about the term 'small manufacturer'.
+  [ID: 65d12b3c-e2de-4c64-8f83-5327eabed95b] Reasoning: This sentence discusses potential unfairness to small manufacturers but does not provide any interpretive information about the term itself.
+  [ID: 7581e563-7a02-4ed0-83d0-e12bf98f50d2] Reasoning: This sentence mentions a common failing regarding small manufacturers but does not provide any interpretive information about the term itself.
+  [ID: 184d58b3-ba06-4b3d-a3e4-860f87e46b8e] Reasoning: This sentence discusses the impact of additional costs on small manufacturers but does not provide any interpretive information about the term itself.
+  [ID: 5db844a1-5b4a-47a6-a1db-43747201146e] Reasoning: This sentence discusses a change in manufacturer from a small manufacturer to a tier-one manufacturer but does not provide any interpretive information about the term itself.
+  [ID: 4cbd677c-64d2-4e54-9a10-ef9681791a04] Reasoning: This sentence mentions the coverage of small manufacturers under GHG regulations but does not provide any interpretive information about the term itself.
+  [ID: d39f318d-e734-4705-b8a9-ecb2461cda5d] Reasoning: This sentence discusses the use of Samos tobacco by small manufacturers but does not provide any interpretive information about the term itself.
+  [ID: 56725e2c-051a-445e-8452-d94ca5a7799d] Reasoning: This sentence discusses the understanding of small manufacturers regarding Samos tobacco but does not provide any interpretive information about the term itself.
+  [ID: e842ec69-7211-42ad-8625-abf295dff337] Reasoning: This sentence describes the growth of a small manufacturer but does not provide any interpretive information about the term itself.
+  [ID: 1db3d761-94c8-44d9-b3d0-769fed251061] Reasoning: This sentence discusses business dealings with small manufacturers but does not provide any interpretive information about the term itself.
+  [ID: 3bf116df-5fad-4844-8e12-4a1ea3827b75] Reasoning: This sentence discusses a transaction involving a manufacturer but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 44db54d2-cc49-40c8-99b1-d2fe8cf5dd67] Reasoning: This sentence discusses a hypothetical scenario involving small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 90345f48-b64c-4be9-8012-1002c2ec2293] Reasoning: This sentence mentions a small manufacturer but does not provide any new interpretive information about the term as defined in the statute.
+  [ID: 47308b78-4e6a-400c-a188-28f1da481c90] Reasoning: This sentence identifies a small manufacturer but does not elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: c4a64553-2cb9-4488-9fcb-832c5750094f] Reasoning: This sentence describes a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: b2bc1498-31ba-48bc-a4f8-1c5b69702ea4] Reasoning: This sentence discusses a conspiracy involving large manufacturers and small manufacturers but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: b6ed3924-1474-45f0-9500-3f7f7e649a7d] Reasoning: This sentence mentions small manufacturers but does not provide any interpretive information about the term as defined in the statute.
+  [ID: 5ba54144-1068-499b-9e3c-03d79107f586] Reasoning: This sentence describes a small manufacturer but does not provide any new interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 0fad81e3-fd1e-4e15-a123-f06ea36d844d] Reasoning: This sentence discusses a small manufacturer exemption but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: a66d2dc5-e4f2-4705-b988-8daea2b22654] Reasoning: This sentence mentions smaller manufacturers but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: a4d52e38-f2b4-4e49-ace6-110f6e7ba7af] Reasoning: This sentence identifies a small manufacturer but does not elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 9d120233-ed33-4f65-826f-c476a4a26ee6] Reasoning: This sentence discusses smaller manufacturers but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 4399780a-4613-4769-b3df-cd7960cf0f5d] Reasoning: This sentence discusses the challenges faced by small manufacturers but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: b19e83f3-d27a-470c-895c-4661e3cdeff2] Reasoning: This sentence mentions trade associations for large and small manufacturers but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 79fa3421-28e5-4054-8dba-d49f12945bae] Reasoning: This sentence describes a small manufacturer but does not provide any new interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: ba360f49-e2a4-42e3-9972-6c7d2accf4f9] Reasoning: This sentence discusses risks faced by a small manufacturer but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: b35425f0-7b1b-424c-a877-febb164a5a48] Reasoning: This sentence mentions a smaller manufacturer but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: a81d189d-1088-4252-ae8f-cb32c97ab2ed] Reasoning: This sentence provides details about the nature of small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: f89dadf2-044d-4893-a839-9b3397edd33c] Reasoning: This sentence discusses competition between small manufacturers and larger companies but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 0ca00178-0d87-4473-9f2b-8ca9907f0507] Reasoning: This sentence discusses challenges faced by small manufacturers but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: ef9dcde4-ec7e-4244-b90c-fab05c85571a] Reasoning: This sentence identifies a small manufacturer but does not elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 7ad1f5be-c1bc-44a9-8d2f-9f614b029a28] Reasoning: This sentence mentions small manufacturers but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 45bbe513-6079-4131-9c78-0e8b3c4d9b60] Reasoning: This sentence discusses other small manufacturers but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 6bef7d74-644f-43ed-b2ee-9540f1c59234] Reasoning: This sentence discusses small manufacturers in the context of trade but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: b269354c-4b53-47ba-b7cf-bb1d8284014e] Reasoning: This sentence mentions small manufacturers but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 568c2e1c-4cb4-4fdd-8ab0-5456a24f3576] Reasoning: This sentence discusses a specific situation involving a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: d3b3783c-1e87-47fa-8a93-e5c336d09d4e] Reasoning: This sentence critiques the penalization of small manufacturers in the context of antitrust laws but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: a472a674-350a-4d51-83a5-13d78e8bd380] Reasoning: This sentence mentions the burden on small manufacturers but does not provide any interpretive information regarding the statutory definition of 'small manufacturer'.
+  [ID: 7fd683ea-d22c-454c-b85b-cdf273c8f4b3] Reasoning: This sentence provides contact information for assistance but does not relate to the definition of 'small manufacturer' in the statute.
+  [ID: 2443e904-9519-4ca0-9f5b-d9d306b3b2a4] Reasoning: This sentence mentions smaller manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: edeebbed-652e-4b89-9de3-5c7b64d4270f] Reasoning: This sentence discusses challenges faced by smaller manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 7f4b68db-857c-458e-b781-bc965e5d6ad4] Reasoning: This sentence discusses the effects of product liability litigation on small manufacturers but does not provide interpretive information about the statutory definition.
+  [ID: 7f44cdf1-4206-4055-96f2-5d0d8371ba2a] Reasoning: This sentence mentions smaller manufacturers but does not provide any interpretive information regarding the statutory definition of 'small manufacturer'.
+  [ID: 3b2e7779-d0bc-4a3b-b40a-23374119ea44] Reasoning: This sentence identifies a specific company as a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: a4f1ede6-9e97-4c26-81ab-eb3740c4867f] Reasoning: This sentence discusses the trend toward the elimination of small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 4be6f71a-2138-4cd6-b595-aedca75b9931] Reasoning: This sentence discusses the impact of power dynamics on small manufacturers but does not provide interpretive information about the statutory definition.
+  [ID: 4387ff94-c648-41c2-9015-6751a30fdc8d] Reasoning: This sentence mentions a representative for small manufacturers but does not provide any interpretive information regarding the statutory definition of 'small manufacturer'.
+  [ID: cff06f46-192a-42e3-ab49-513eee45d368] Reasoning: This sentence states that something is beyond the reach of the small manufacturer but does not clarify or elaborate on the statutory definition.
+  [ID: b3b70495-4f63-4f49-8e4a-65189a70b7cb] Reasoning: This sentence mentions an authorized distributor for smaller manufacturers but does not provide any interpretive information regarding the statutory definition of 'small manufacturer'.
+  [ID: a0fd9668-2108-41dc-9bb0-080568a4e7c5] Reasoning: This sentence discusses the priority of contract negotiations with a small manufacturer but does not clarify or elaborate on the statutory definition.
+  [ID: aa6c06e1-c861-4c37-843a-88fec723e9ce] Reasoning: This sentence discusses the nonmanufacturer rule related to small business set-asides but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 67bc9c54-a5a2-4a48-86d8-057d629f5fad] Reasoning: This sentence discusses competition and profitability for small manufacturers but does not clarify or elaborate on the statutory definition.
+  [ID: 6161b2ad-d04e-4ec7-ad27-6feda61ae2d9] Reasoning: This sentence discusses market share growth for a small manufacturer but does not provide any interpretive information regarding the statutory definition of 'small manufacturer'.
+  [ID: e014f8cf-93aa-4638-8f5e-ae9210ee65ab] Reasoning: This sentence describes a company engaged in wholesale distribution to small manufacturers but does not clarify or elaborate on the statutory definition.
+  [ID: f82d379c-2dc9-447f-a9db-5d1fabb3b3ce] Reasoning: This sentence discusses a small manufacturer in a legal context but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 0d748992-ae43-4363-a81b-4d144cb97001] Reasoning: This sentence mentions small manufacturers having service contracts but does not provide any interpretive information regarding the statutory definition of 'small manufacturer'.
+  [ID: 4a938f98-23b6-4d2d-a225-2958477e0884] Reasoning: This sentence states that a company has a history as a small manufacturer but does not clarify or elaborate on the statutory definition.
+  [ID: 14bf71aa-d9a5-4b47-8a71-5701047fb00c] Reasoning: This sentence discusses competition from smaller manufacturers but does not provide any interpretive information regarding the statutory definition of 'small manufacturer'.
+  [ID: 01fedfd9-bcd9-431e-976a-a94b6d344cf2] Reasoning: This sentence discusses income derived from licenses granted to smaller manufacturers but does not clarify or elaborate on the statutory definition.
+  [ID: 3b40ce9b-6ff9-4b8f-9dc0-0afcd580c99e] Reasoning: This sentence discusses a challenge to an exemption for small manufacturers but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 16f51d75-8ad0-4fcd-8cb3-90f6a1165f41] Reasoning: This sentence discusses the hardships faced by small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 0c4d599b-d57a-457a-9dad-67d75415c01c] Reasoning: This sentence mentions small manufacturers in the context of unlawful business practices but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 255380ce-fde2-4db3-bf45-6dc9dab805f5] Reasoning: Similar to the previous sentence, this one discusses unlawful practices affecting small manufacturers without providing interpretive information about the statutory term.
+  [ID: 7a30f565-bc3c-4c12-80c7-927e31247736] Reasoning: This sentence mentions small manufacturers but does not provide any interpretive information regarding the statutory definition of 'small manufacturer'.
+  [ID: c352be6a-c06b-40e9-85fc-d275ee0b7871] Reasoning: This sentence discusses market dynamics affecting smaller manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 15ebd769-5bf6-48c3-9092-841f78548c9d] Reasoning: This sentence provides a specific example of a small manufacturer and describes its product, but it does not elaborate on the statutory definition of 'small manufacturer'.
+  [ID: cbf0a692-d098-4296-ba9b-0c65bf3bffe6] Reasoning: This sentence discusses the potential success of a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: dabc9aee-b2ee-420f-8326-d452d3cbbd21] Reasoning: This sentence contains legal citations and case references but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 5f8beeb0-27aa-4771-9b21-2cb85f2398b2] Reasoning: This sentence mentions a small manufacturer in a historical context but does not provide any interpretive information regarding the statutory definition of 'small manufacturer'.
+  [ID: 77e091dd-20d8-4ba0-9a41-6f90dfeec4fa] Reasoning: This sentence discusses the challenges faced by small manufacturers regarding insurance costs but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: e0a5cc1b-dcf3-4247-b148-2fe75eacf077] Reasoning: This sentence discusses the difficulties small manufacturers face in obtaining insurance but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: c5885a58-8806-4bee-b996-3c6921770831] Reasoning: This sentence references a Congressional Report about small manufacturers but does not provide any interpretive information regarding the statutory definition of 'small manufacturer'.
+  [ID: 0a317ea1-b430-4486-b2a8-88f7107bfc72] Reasoning: This sentence discusses the impact of evidentiary rules on small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 19fb6849-b415-42fe-aa3f-029d5bb01f12] Reasoning: This sentence discusses bookkeeping methods for small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 97e63b05-c90c-42a7-9b1c-474d1c680e57] Reasoning: This sentence describes a specific small manufacturer and its operations but does not elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 3d10d29e-7f59-4e83-a4a0-52d38ae87093] Reasoning: This sentence references a legal claim regarding small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 6f86449c-3f92-4727-883e-90b4731f7549] Reasoning: This sentence discusses a legal assertion regarding small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 06b9a1a7-2cd3-4d52-9c7b-7938b5f09082] Reasoning: This sentence discusses assessment procedures for small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: a408c637-17d9-44aa-b767-65904047818a] Reasoning: This sentence references a legal claim regarding the exclusion of small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 14dfe2bb-95d0-457a-b167-597ede43052c] Reasoning: This sentence discusses the situation of small manufacturers in relation to a tax but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 96394602-11a8-4954-ab86-929fc7b951d3] Reasoning: This sentence discusses the exclusion of small manufacturers from certain provisions but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 973cd584-8c65-404e-b818-ca65cac4f329] Reasoning: This sentence discusses the rationale for excluding small manufacturers from certain regulations but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 2aa334c1-8f71-4bfc-a70f-e78a74c9392f] Reasoning: This sentence references a legal provision regarding small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 327dbd46-c211-4690-869e-ca3059915cfd] Reasoning: This sentence discusses fairness in legal rules as applied to small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 7f11f1e3-4062-4a70-8ede-7ffb52c738e8] Reasoning: This sentence discusses potential burdens on small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 07ddf115-45ef-41e0-928c-5d04ba3dac32] Reasoning: This sentence discusses small manufacturers maintaining retail departments but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 71559dd6-bb7e-4b01-94c5-f3996843d6e4] Reasoning: This sentence discusses the challenges faced by small manufacturers regarding profitability and wage increases, but it does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 814d28bf-71c5-421d-b73f-ef6af0df8033] Reasoning: This sentence describes the influence of a Regional Company on a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 92ebbf0f-1337-4c46-9f2c-a686d07970fa] Reasoning: This sentence mentions small manufacturers challenging EPA rules but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: f24f2c43-0e3e-473b-b1bc-6c72fc489db8] Reasoning: This sentence provides specific operational details about a small manufacturer but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: da5c7364-33d7-48bb-b0d9-d38d9da16355] Reasoning: This sentence expresses concern for small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 6cf0cf1c-1b89-4ad4-9149-7b9a0ac14efc] Reasoning: This sentence contrasts the treatment of large and small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: d8ac9b47-7c06-4250-b11f-5088c2a15731] Reasoning: This sentence states that Doublestar is not a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 22d5b351-f100-4a2c-9320-077bb79d64bf] Reasoning: This sentence states that the case does not involve a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 66541a05-d834-4672-890d-fe71aeeb26e8] Reasoning: This sentence identifies a plaintiff as a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: da302081-fe86-40e8-a6d8-0a2a2334875f] Reasoning: This sentence describes a union of small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 0908e4cc-3f34-45cd-9165-a4cf2935e4b7] Reasoning: This lengthy sentence provides various details about a small manufacturer but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: d3a7eb9b-903c-428f-b8d3-42c19e9c20ce] Reasoning: This sentence repeats a previous statement about fairness in the context of small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 977e1e00-afaf-45e6-98bf-7b889401479a] Reasoning: This sentence states that the defendant was a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: becd4ae4-b79f-4e22-8f9e-0b78d5776d17] Reasoning: This sentence discusses a small manufacturer competing with larger manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 01a152bc-8bcc-46a9-b585-5084636f5ebb] Reasoning: This sentence discusses the implications of penalizing small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: cd29755f-5202-48fb-8b82-5e25cb852937] Reasoning: This sentence discusses the challenges faced by small manufacturers in wielding organized power but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 20d58a75-5a7f-4810-a49a-21360c8bad43] Reasoning: This sentence repeats a previous statement about fairness in the context of small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: c9633c10-3dcc-4f0c-8ebc-4785ca4ff1cd] Reasoning: This sentence mentions a small manufacturer of blocks but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 54113e17-0645-4e0f-ba94-c2ee054d02f3] Reasoning: This sentence is a citation and does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 78c4c54c-2c0e-4850-a302-c0eb21ae81d0] Reasoning: This sentence discusses the market dynamics affecting small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 2054af56-7d3e-42b8-bc90-01fa94d48276] Reasoning: This sentence discusses the evidence regarding small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 99e5c860-9563-40ac-89bb-32d019e39204] Reasoning: This sentence discusses small manufacturers engaging in international trade but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: a83a8932-fed1-411a-8a56-9d912f5c5355] Reasoning: This sentence describes the growth of a small manufacturer into a corporation but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: a17e49e2-13ef-46a8-9bba-90bf78b506a1] Reasoning: This sentence states the employment of an individual by a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 8033b2e7-1e7b-4d28-9d26-a6b75f02e109] Reasoning: This sentence mentions 'small manufacturer' but does not provide any interpretive information about the term as defined in the statute. It merely states that Automotive was a small manufacturer without elaboration.
+  [ID: 4b5c8967-7dbd-4096-aece-021c94bc7f59] Reasoning: This sentence is a citation and does not provide any interpretive information about 'small manufacturer' or its meaning in the context of the statute.
+  [ID: eef93dbd-a6cc-40f1-90c9-687767cb49e7] Reasoning: This sentence identifies Columbia as a small manufacturer but does not provide any additional interpretive information about what constitutes a 'small manufacturer' as defined in the statute.
+  [ID: c5965a3d-f491-4e4a-b916-ecee92b543ac] Reasoning: This sentence discusses small manufacturers maintaining retail departments but does not clarify or elaborate on the definition of 'small manufacturer' as per the statute.
+  [ID: 3de4a78f-147a-494f-b3d3-3696cd245914] Reasoning: This sentence discusses the impact of evidentiary exclusion on small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: dbadcc6c-b25f-4961-8aba-87927b43a474] Reasoning: This sentence discusses the prohibitive cost of insurance for small manufacturers but does not define or elaborate on the term 'small manufacturer' as per the statute.
+  [ID: a3df7dc4-ab36-46e7-8184-1c733875ad13] Reasoning: This sentence is a citation and does not provide any interpretive information about 'small manufacturer' or its meaning in the context of the statute.
+  [ID: 65c95974-7c32-45a6-88de-2bdb862d7047] Reasoning: This sentence discusses the liability of small manufacturers in the context of concerted action but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: 5931f0e1-1af2-413f-afe6-1afd57117c38] Reasoning: Similar to the previous sentence, this discusses liability issues for small manufacturers without providing a definition or elaboration on the term.
+  [ID: 50be0ca8-65fe-4ec7-a1e3-4e18de62bcdf] Reasoning: This sentence discusses the burden on small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: ccdcfe71-2747-4c3b-824a-b4e7305edc2b] Reasoning: This sentence discusses joint liability for small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: a5975093-7adc-418b-9d91-a38528bd7e18] Reasoning: This sentence discusses fairness in the context of small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: 4933bbeb-6334-4b13-84e8-e5b59bc36582] Reasoning: This sentence discusses the burdens on small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: 57dbc931-dee8-421b-a8da-538dffc216c6] Reasoning: This sentence identifies Boucher and Phillips as small manufacturers but does not provide any interpretive information about the term as defined in the statute.
+  [ID: 148a3aaa-9d17-492f-8181-7a6c084e3aad] Reasoning: This sentence discusses fairness in the context of small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: aaa37d14-7d31-4485-83b8-84b5e87f88f2] Reasoning: This sentence identifies the plaintiff as a small manufacturer but does not provide any interpretive information about the term as defined in the statute.
+  [ID: e3bf0268-fbb9-42fe-9971-6d39db83e04c] Reasoning: This sentence questions the classification of Huebner Implement as a large or small manufacturer but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: d0aeac95-5279-48d7-b8df-983f338125fa] Reasoning: This sentence discusses the differences between large and small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: aa8bec8e-ccb3-4d65-a61b-e7d87727c9d1] Reasoning: This sentence discusses empirical evidence regarding manufacturer responses but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: 8dd16e7e-0c4d-447d-8356-5c08008321cd] Reasoning: This sentence discusses the possibility of distinguishing between large and small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: 99c5c419-de0a-4ec2-8579-d385ac196f32] Reasoning: This sentence states that the justification of the doctrine applies to both large and small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: 93b92709-d4ff-49a6-a9e5-981f2cb093af] Reasoning: This sentence discusses the limitation of a case to strict liability but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: 4a47def1-26cd-4a38-a208-bcf6afcf8d69] Reasoning: This sentence discusses the applicability of a case to small manufacturers but does not provide a definition or elaboration on the term 'small manufacturer' itself.
+  [ID: 297b0313-4e29-4b13-84e8-e5b59bc36582] Reasoning: This sentence provides testimony from a small manufacturer regarding insurance costs, which implies a context for understanding the challenges faced by small manufacturers but does not define or elaborate on the term itself.
+  [ID: 15642234-4bc3-4edc-b79e-83b6aa501635] Reasoning: This sentence is a citation and does not provide any interpretive information about 'small manufacturer' or its meaning in the context of the statute.
+  [ID: f3411af4-6f1e-4a66-93ca-8ebc0192bb38] Reasoning: This sentence does not provide any interpretive information about the term 'small manufacturer' and merely states a general observation.
+  [ID: b03a15d5-2181-4b47-a838-3b9e6840084d] Reasoning: This sentence discusses the challenges faced by small manufacturers but does not define or elaborate on the statutory meaning of 'small manufacturer'.
+  [ID: 0c1abbbb-4b8e-459f-bce2-8479a50a011b] Reasoning: This sentence references a case involving small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 66efe2f2-e63d-4003-9ae5-b3e360481a1] Reasoning: This sentence describes a legal case involving a small manufacturer but does not clarify or elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: f94beac5-c1cb-4278-940b-0406b18ad0e2] Reasoning: This sentence provides statistical information about small manufacturers but does not define or elaborate on the statutory meaning of 'small manufacturer'.
+  [ID: ac244efd-898d-4f15-a71e-0ff7c0a25f6f] Reasoning: This sentence discusses a legal challenge involving small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: ce51353b-1e89-4ce8-8c7d-5cb7d0cf808d] Reasoning: This sentence discusses the authority of NHTSA regarding small manufacturers but does not clarify or elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: a2c06e2c-c702-443f-8402-42fe9297759c] Reasoning: This sentence provides a specific exemption for small manufacturers but does not elaborate on the statutory definition of 'small manufacturer'.
+  [ID: d1a3dcee-96e0-4f2f-bc24-42cc37ab42ac] Reasoning: This sentence discusses the rationale behind an exemption for small manufacturers but does not define or elaborate on the statutory meaning of 'small manufacturer'.
+  [ID: 9233385d-0b2e-42aa-8465-b0937781dd17] Reasoning: This sentence mentions smaller manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: d104f768-0ed6-4f11-8bbe-b574ca2c8725] Reasoning: This sentence discusses potential issues for manufacturers, particularly smaller ones, but does not clarify or elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: b3690608-d0f0-4240-8564-e14f0407e04a] Reasoning: This sentence references a minimum designed to help small manufacturers but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: c9b5d141-74fe-4662-a6ca-9b4c9c0a92a1] Reasoning: This sentence identifies a specific company as a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: f9e601bf-44b5-4022-bb8b-88dd5b72a13e] Reasoning: This sentence discusses the challenges faced by small manufacturers in adopting technology but does not define or elaborate on the statutory meaning of 'small manufacturer'.
+  [ID: 15752c2c-a3ef-444d-b59d-92ec883b8ca7] Reasoning: This sentence mentions the legislative history related to small manufacturers but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 0c6b43b9-2798-409e-bd59-18e047120552] Reasoning: This sentence discusses a specific amendment related to small manufacturers but does not clarify or elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 4958a172-0614-4694-8818-eb2bb5866d7d] Reasoning: This sentence discusses a specific problem faced by small manufacturers but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 2bde4ad2-2c44-4687-bddc-5bdf9e6a165b] Reasoning: This sentence discusses regulatory directives for small manufacturers but does not clarify or elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 10336846-9a2c-40b6-b323-afa0b81268a7] Reasoning: This sentence discusses specific emissions standards for small manufacturers but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 18d6c95c-24b7-427a-a1ee-83d2a6b360cb] Reasoning: This sentence discusses a lead period mandated by Congress for small manufacturers but does not clarify or elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 28e3cb0c-3536-411b-aa51-1c6e4a40767d] Reasoning: This sentence discusses potential implications for small manufacturers regarding state standards but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: ff5ac680-747b-4ed1-8773-d10dcc998fcb] Reasoning: This sentence discusses potential unfairness to small manufacturers but does not clarify or elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 59221f7b-eb66-436b-a096-a82655eb2595] Reasoning: This sentence references comments regarding small manufacturers but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 95217323-efd0-4cb7-a3f1-fb011f28ab50] Reasoning: This sentence discusses exemptions for certain smaller manufacturers but does not clarify or elaborate on the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 37ae1c1c-cee4-4bbf-a3f3-b18263aa0121] Reasoning: This sentence provides an example of a small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 1514e546-9a46-473a-82cb-2bed88707ae6] Reasoning: This sentence discusses the marketing of products by small manufacturers but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 8f9015cf-4439-4d3d-aad7-68fe70978ecf] Reasoning: This sentence mentions 'smaller manufacturers' but does not elaborate on the definition or meaning of 'small manufacturer' as per the statute.
+  [ID: 30bb5afc-9fff-4812-adc0-95a39e041af6] Reasoning: This sentence identifies a specific small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 0f72af19-e0cd-4121-b5e9-fdfb224b20ab] Reasoning: This sentence refers to small manufacturers in a general context without providing any specific interpretive information about the statutory definition.
+  [ID: 043d8419-50a4-4edf-b28e-cff4ca027330] Reasoning: This sentence discusses actions taken in relation to small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 91649e95-1afc-4040-99e2-a9dc4981bced] Reasoning: This sentence provides specific information about a small manufacturer and its operations, but does not elaborate on the statutory definition of 'small manufacturer'.
+  [ID: ad859997-c87b-4963-9044-e79356a61ce1] Reasoning: This sentence discusses comments from organizations regarding small manufacturers but does not provide interpretive information about the statutory definition.
+  [ID: daa2b4f2-2e4e-4046-b8c3-90d5ebd0a3a4] Reasoning: This sentence mentions small manufacturers in the context of awarded contracts but does not provide any interpretive information about the statutory definition.
+  [ID: 251c034b-9958-4760-8f7f-1aa738cbd723] Reasoning: This sentence states that the plaintiff was a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 65ec7c19-2a34-48ec-9903-c2828b8691dd] Reasoning: This sentence identifies a small manufacturer but does not elaborate on the statutory definition or provide interpretive information.
+  [ID: 15f7f5d2-56ae-4793-9416-cf5f70d6fc3e] Reasoning: This sentence repeats the previous sentence about the plaintiff being a small manufacturer without adding any new information.
+  [ID: 07ce31f6-b60d-448d-bc72-08fa2229d094] Reasoning: This sentence discusses the implications of strict liability on small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: c67f98a5-3bb3-4184-9da4-8da2f94e5905] Reasoning: This sentence discusses set-asides for small business concerns but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 854d2faf-3a46-43de-b38b-65b0f32ae17a] Reasoning: This sentence identifies a small manufacturer but does not elaborate on the statutory definition or provide interpretive information.
+  [ID: 8ca0e213-0821-4d1c-84d1-2cd66ad30c6e] Reasoning: This sentence discusses the competitive factors for small manufacturers but does not provide interpretive information about the statutory definition.
+  [ID: 3beeabfc-ce03-4698-83a4-619e04dd579d] Reasoning: This sentence discusses the potential for smaller manufacturers to expand but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: ee38a14f-a861-4215-8f5a-d95a88e567e7] Reasoning: This sentence discusses a merger's impact on competition but does not provide interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 1e680d6d-ddcc-47de-b803-ab5a8b45d849] Reasoning: This sentence discusses provisions aimed at small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: a93b8249-c441-4084-96d8-d7c4fbf9e9c9] Reasoning: This sentence discusses financial benefits for small manufacturers but does not provide interpretive information about the statutory definition.
+  [ID: a10a8888-76aa-443a-ae37-befc5d1e4163] Reasoning: This sentence discusses a directive related to smaller manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 38177dbd-9fd6-4adc-a59a-4274a7cee114] Reasoning: This sentence mentions small manufacturers in the context of jewelry but does not provide interpretive information about the statutory definition.
+  [ID: 3cf63db1-7a30-4828-b80b-bfd209235c16] Reasoning: This sentence discusses agreements involving small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: fb8fe159-d8e5-4b22-b39f-9cb1044be213] Reasoning: This sentence discusses a program involving smaller manufacturers but does not provide interpretive information about the statutory definition.
+  [ID: 3faf47dbd-427b-4885-9440-61d07d5e3942] Reasoning: This sentence discusses a specific product line and its development by a smaller manufacturer but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: a5d285df-702a-432f-82cd-d1d39c293ed5] Reasoning: This sentence discusses the impact of a franchise program on small manufacturers but does not provide interpretive information about the statutory definition.
+  [ID: 85f20c88-42d5-4443-be34-33e6cb8733b2] Reasoning: This sentence mentions exemptions for small manufacturers but does not provide any interpretive information about the term 'small manufacturer' as defined in the statute.
+  [ID: 15ea31db-fee3-4e8d-b7fb-bc6d96b918e2] Reasoning: This sentence discusses smaller manufacturers changing their product forms but does not clarify or elaborate on the definition of 'small manufacturer' in the statute.
+  [ID: d2ccfcfd-3442-46b9-b1e8-6cace63ce3d7] Reasoning: This sentence provides context about a specific small manufacturer but does not elaborate on the statutory definition or meaning of 'small manufacturer'.
+  [ID: 7c765748-623e-41aa-b129-dbb064185750] Reasoning: This sentence reflects a personal perspective of being a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 493f6b64-6bf0-4a55-bd91-6fc2e89adc22] Reasoning: This sentence discusses the impact of market conditions on smaller manufacturers but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 5d365dae-20ae-40f4-ad5b-e99baec10fa9] Reasoning: This sentence mentions small manufacturers in a broader context but does not provide any specific interpretive information about the statutory term.
+  [ID: b52c872e-97d9-414e-a530-11ce341018bc] Reasoning: This sentence discusses the potential bankruptcy of small manufacturers but does not elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 2134ddf8-a115-45f7-90c0-7a7b56728758] Reasoning: This sentence identifies a specific plaintiff as a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 60fc6400-5286-489a-a697-5b115f745e73] Reasoning: This sentence discusses the challenges faced by smaller manufacturers but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: d17a95c0-73e5-4d09-aad7-f7ad7fbac7b1] Reasoning: This sentence identifies a specific company as a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 622b1693-981c-41d1-991f-8829c7f32e2c] Reasoning: This sentence discusses the burden on small manufacturers but does not elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 90f93652-4ed5-44d3-a5ce-2b3cc2780086] Reasoning: This sentence mentions exemptions for small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: 153b1a48-7f4c-44fb-999b-00682822f636] Reasoning: This sentence identifies a specific small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 5ff0e84f-84c3-49f4-8c26-b8bcf5eb5f18] Reasoning: This sentence describes a small manufacturer but does not elaborate on the statutory definition or meaning of 'small manufacturer'.
+  [ID: ce3f29b2-b8b2-4800-b79c-1cb69c1024db] Reasoning: This sentence discusses a small manufacturer in a competitive context but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 4b11bd9d-c6c2-45e0-86c0-230cf678e9c7] Reasoning: This sentence discusses the implications of penalizing small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: 86f45970-5bc9-439f-aee2-b2e90b9bd213] Reasoning: This sentence mentions smaller manufacturers in a licensing context but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 8a6ab3ec-054f-438a-9f20-b278922d879c] Reasoning: This sentence cites a legal provision related to small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: 3761720d-4a67-4cec-a541-2a266c1f556b] Reasoning: This sentence discusses the competitive landscape for smaller manufacturers but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 07c78a86-ef5c-4e78-b3ea-380d6a26ea2b] Reasoning: This sentence mentions small manufacturers in a context of alleged wrongdoing but does not provide any interpretive information about the statutory definition.
+  [ID: a8867410-7114-424e-bc7d-ac924658923c] Reasoning: This sentence discusses a small manufacturer in the context of patent strategy but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 3c596dfc-4f4c-47ff-bf33-4cc98833e44c] Reasoning: This sentence describes a specific small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: cae87121-04f3-4e59-935b-012ea50c307e] Reasoning: This sentence discusses market entry strategies involving small manufacturers but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 40df4233-627e-40af-bb3a-0d3d5db183e9] Reasoning: This sentence describes a small manufacturer and its patent processes but does not provide any interpretive information about the statutory definition.
+  [ID: 34473489-f730-4a1e-86da-8542168304bc] Reasoning: This sentence discusses exemptions for small manufacturers under a different program but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: 27a4c19e-d955-4580-8e87-d2c6bf260714] Reasoning: This sentence discusses a GAO finding related to small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 14e8487c-2e0b-43b4-8c1c-32cf888c20ad] Reasoning: This sentence describes a witness's visit to small manufacturers in Italy, which does not relate to the statutory definition of 'small manufacturer' in the U.S.
+  [ID: fd8f875c-d670-4ecd-b324-b24e31d6093d] Reasoning: This sentence mentions smaller manufacturers of radio receiving sets but does not provide any interpretive information about the statutory term 'small manufacturer'.
+  [ID: 4f24d0e2-654e-495e-bc80-13e1ea16e4f5] Reasoning: This sentence contrasts the experiences of large and small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: 3f59fec5-505a-446b-ad73-ce5ff71751a6] Reasoning: This sentence mentions small manufacturers in the context of securing debt but does not provide any interpretive information about the statutory definition.
+  [ID: 0f5b595a-22cd-4143-901b-74bcb1589973] Reasoning: This sentence discusses unfair competition affecting smaller manufacturers but does not clarify the meaning of 'small manufacturer' as defined in the statute.
+  [ID: f59db379-5dc0-4374-ad7f-29d94ebf35eb] Reasoning: This sentence suggests that 'small manufacturers' refers to firms other than a specific company, but it does not provide a clear definition or elaboration on the statutory term.
+  [ID: 4256024a-cfad-4a73-a899-1c45ee2b6ac4] Reasoning: This sentence speculates about the ability of small manufacturers to fill a market gap but does not provide interpretive information about the statutory definition.
+  [ID: d1c3f772-c5c2-466c-954e-4bf0ad5e22d7] Reasoning: This sentence states a truism about the detrimental effects of anti-competitive actions on small manufacturers but does not clarify the statutory definition.
+  [ID: b0f33d10-350c-428a-839a-963967feb40e] Reasoning: This sentence discusses a grant of permission to small manufacturers but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 79017506-841d-47ef-934f-4f82234ea402] Reasoning: This sentence mentions small manufacturers in the context of distribution but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: c0239941-bf42-40f9-a303-10748f998c70] Reasoning: This sentence identifies a company as a small manufacturer of electrical equipment but does not provide any interpretive information about the statutory definition.
+  [ID: ffe7597a-fdc9-4d15-840c-b5172c11fae4] Reasoning: This sentence identifies another small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 476174d5-7a38-461c-a9d7-fba60f3c2bc6] Reasoning: This sentence discusses manufacturing processes involving smaller manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 93bf87a5-86a7-4e98-a8d7-1f6ca080c29f] Reasoning: This sentence lists various customers including small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: 92eb5b4e-a8c3-4b4a-88f7-f76ef93aff92] Reasoning: This sentence discusses the economic effects of a cooperative on small manufacturers but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 9809eb4f-0bd5-492d-bae1-6cf3347c4a16] Reasoning: This sentence identifies the plaintiff as a small manufacturer of a specific product but does not provide any interpretive information about the statutory definition.
+  [ID: 9e7388ea-96cc-4242-930d-c0833cff6a11] Reasoning: This sentence lists smaller manufacturers as defendants but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: a4026dba-17e9-403e-8112-af23bb70bbdc] Reasoning: This sentence discusses the challenges faced by small manufacturers but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: f98a5b9d-1bd1-4526-b0ff-643baacccf63] Reasoning: This sentence discusses the potential liability of small manufacturers but does not provide any interpretive information about the statutory definition.
+  [ID: aaee0294-991a-40cb-9c85-cb5d56cdc617] Reasoning: This sentence discusses small manufacturers' willingness to pay royalties but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
+  [ID: a51bf2ea-5ec2-4dda-813c-136bc7212680] Reasoning: This sentence describes a scenario involving a small manufacturer but does not provide any interpretive information about the statutory definition.
+  [ID: 99d5a212-d102-44ad-9ecf-f25a6397dc80] Reasoning: This sentence identifies a small manufacturer and provides some context about its products but does not clarify the statutory definition of 'small manufacturer'.
+  [ID: 2df7b9de-212e-4abe-bb7e-44d57ca7c212] Reasoning: This sentence identifies another small manufacturer but does not provide any interpretive information about the statutory definition of 'small manufacturer'.
+  [ID: 6fb826be-5c14-4edf-97fc-4d86e5791041] Reasoning: This sentence discusses the term 'Minnesota' in relation to a smaller manufacturer but does not clarify or elaborate on the statutory definition of 'small manufacturer'.
 Method: probabilities | Term: small manufacturer
-NDCG@10: 0.3672245391252458
-NDCG@20: 0.3992842456060665
-NDCG@40: 0.4205927417905799
-NDCG@100: 0.5102102768393282
+NDCG@10: 0.5052234212134469
+NDCG@20: 0.5319684947613316
+NDCG@40: 0.5234779402813752
+NDCG@100: 0.5744395523831264
 
 ----------------------------------------
 STDERR:
@@ -133,17 +577,20 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/19 [00:00<?, ?batch/s]
-GPT batches:   5%|▌         | 1/19 [00:04<01:26,  4.81s/batch]
-GPT batches:  11%|█         | 2/19 [00:19<02:58, 10.49s/batch]
-GPT batches:  16%|█▌        | 3/19 [00:21<01:45,  6.58s/batch]
-GPT batches:  21%|██        | 4/19 [00:21<01:04,  4.27s/batch]
-GPT batches:  26%|██▋       | 5/19 [00:24<00:52,  3.73s/batch]
-GPT batches:  32%|███▏      | 6/19 [00:24<00:32,  2.50s/batch]
-GPT batches:  37%|███▋      | 7/19 [00:27<00:29,  2.48s/batch]
-GPT batches:  63%|██████▎   | 12/19 [00:28<00:06,  1.16batch/s]
-GPT batches:  68%|██████▊   | 13/19 [00:29<00:05,  1.11batch/s]
-GPT batches:  74%|███████▎  | 14/19 [00:30<00:04,  1.07batch/s]
-GPT batches:  79%|███████▉  | 15/19 [00:30<00:03,  1.31batch/s]
-GPT batches:  95%|█████████▍| 18/19 [00:31<00:00,  1.88batch/s]
-GPT batches: 100%|██████████| 19/19 [00:31<00:00,  2.16batch/s]
-GPT batches: 100%|██████████| 19/19 [00:31<00:00,  1.65s/batch]
+GPT batches:   5%|▌         | 1/19 [00:05<01:36,  5.37s/batch]
+GPT batches:  11%|█         | 2/19 [00:46<07:28, 26.40s/batch]
+GPT batches:  16%|█▌        | 3/19 [00:46<03:50, 14.43s/batch]
+GPT batches:  21%|██        | 4/19 [00:47<02:13,  8.92s/batch]
+GPT batches:  26%|██▋       | 5/19 [00:47<01:22,  5.86s/batch]
+GPT batches:  32%|███▏      | 6/19 [00:48<00:52,  4.03s/batch]
+GPT batches:  37%|███▋      | 7/19 [00:48<00:34,  2.89s/batch]
+GPT batches:  47%|████▋     | 9/19 [00:48<00:15,  1.53s/batch]
+GPT batches:  53%|█████▎    | 10/19 [00:49<00:11,  1.28s/batch]
+GPT batches:  58%|█████▊    | 11/19 [00:49<00:08,  1.01s/batch]
+GPT batches:  68%|██████▊   | 13/19 [00:49<00:03,  1.52batch/s]
+GPT batches:  74%|███████▎  | 14/19 [00:50<00:03,  1.46batch/s]
+GPT batches:  84%|████████▍ | 16/19 [00:51<00:01,  1.72batch/s]
+GPT batches:  89%|████████▉ | 17/19 [00:54<00:02,  1.20s/batch]
+GPT batches:  95%|█████████▍| 18/19 [00:59<00:01,  1.91s/batch]
+GPT batches: 100%|██████████| 19/19 [00:59<00:00,  1.53s/batch]
+GPT batches: 100%|██████████| 19/19 [00:59<00:00,  3.13s/batch]

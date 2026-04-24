@@ -1,6 +1,53 @@
-Command: /Library/Developer/CommandLineTools/usr/bin/python3 rank.py --term identifying particular --type few_shot --sentences sources/identifying_particular/identifying_particular-sentence.json --provisions sources/provisions.json --verbose false
+Command: /opt/anaconda3/bin/python rank.py --term identifying particular --type probabilities --sentences sources/identifying_particular/identifying_particular-sentence.json --provisions sources/provisions.json --verbose false --prompt system_prompts/zero_shot_previous_best.txt
 Error Code: 1
+ERROR processing GPT probabilities: 'probs'
+Response: [
+{"sentence_id": "b3a9453e-9497-4db1-95fd-3a581ccb5a7f", "label": "no value"},
+{"sentence_id": "047c2154-296a-4af8-a8cc-797406058ebb", "label": "no value"},
+{"sentence_id": "bb1feefc-7edb-49d9-aa2e-b428a14ab827", "label": "certain value"},
+{"sentence_id": "97c9be8d-cf6b-493f-a537-c4c19b1f4874", "label": "certain value"},
+{"sentence_id": "181c3262-0521-4cc5-b0c4-edcbc0293920", "label": "high value"},
+{"sentence_id": "8061c484-28c4-4c6b-b1c5-555076fe9c6f", "label": "certain value"},
+{"sentence_id": "8c55689f-e604-48d7-819b-571503367559", "label": "no value"},
+{"sentence_id": "0d8923be-3528-46cd-9909-ccba6b926758", "label": "certain value"},
+{"sentence_id": "33c804d7-9e39-47c5-9768-37a9b10f830a", "label": "high value"},
+{"sentence_id": "9a1302d2-7d3d-4a89-8346-24ac3720dc87", "label": "certain value"},
+{"sentence_id": "0bf036f8-c543-4ce8-adf4-a23072799b05", "label": "certain value"},
+{"sentence_id": "bc1b8a6f-9950-471b-8c60-a970bd5866c1", "label": "no value"},
+{"sentence_id": "7e72ebb6-d931-4279-a567-307b5fde8f1c", "label": "no value"},
+{"sentence_id": "f5a56a46-ed33-4bdc-b2d8-5d1d5df0ec52", "label": "no value"},
+{"sentence_id": "f208f2e6-a177-4128-b5b6-37b6a266a7d6", "label": "certain value"},
+{"sentence_id": "a862b473-c589-4f30-9d55-423c83d75ede", "label": "no value"}
+]
+wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netrc
+wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+
+GPT batches:   0%|          | 0/89 [00:00<?, ?batch/s]
+GPT batches:   0%|          | 0/89 [00:11<?, ?batch/s]
 Traceback (most recent call last):
-  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 5, in <module>
-    from openai import OpenAI, AsyncOpenAI
-ModuleNotFoundError: No module named 'openai'
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 1063, in <module>
+    main()
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 1059, in main
+    asyncio.run(run_ranking_engine(args))
+  File "/opt/anaconda3/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 1007, in run_ranking_engine
+    df_gpt = await gpt_label_batch(df, args.type, args.term, args.id_check, raw_statute, system_prompt)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 301, in gpt_label_batch
+    batch_df = await coro
+               ^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/asyncio/tasks.py", line 631, in _wait_for_one
+    return f.result()  # May raise f.exception().
+           ^^^^^^^^^^
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 265, in _gpt_probabilities_single_batch
+    probs = item["probs"]
+            ~~~~^^^^^^^^^
+KeyError: 'probs'

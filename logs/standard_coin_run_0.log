@@ -1,131 +1,223 @@
 Command: /opt/anaconda3/bin/python rank.py --term standard coin --type probabilities --sentences sources/standard_coin/standard_coin-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: 0b12e448-bc02-49d0-9115-260b8f60c21d] Reasoning: This sentence uses 'standard coin' metaphorically to describe the quality of testimony, which does not relate to the statutory definition or application of 'standard coin' in a legal or financial context.
+  [ID: c8740425-aa84-4cee-b30e-3475200f9dc4] Reasoning: This sentence is identical to the previous one and similarly uses 'standard coin' metaphorically, providing no relevant legal or interpretive context.
+  [ID: 0b74d531-2d49-447b-b49e-914b57f312b9] Reasoning: This sentence mentions 'standard coin box' but does not relate to the statutory definition or application of 'standard coin' in the context of currency valuation, thus lacking interpretive value.
+  [ID: 09413ae7-4adf-4f23-a327-63813db92606] Reasoning: This sentence discusses a legal standard but does not mention 'standard coin' in a relevant context, nor does it provide any interpretive value related to the phrase of interest.
+  [ID: a4303f66-1e10-4643-a620-5824fa84f2f7] Reasoning: Discusses the implications of a collector's decision regarding the value of a foreign standard coin, but does not provide new interpretive context or application.
+  [ID: c305c8d6-5a35-42be-a2e7-428eaa943aa1] Reasoning: Explains the method of comparing standard coins, which adds some context but does not significantly deepen understanding of the statute's application.
+  [ID: bef03476-4531-4e55-83f8-0220807e0b23] Reasoning: Mentions the director of the mint estimating values, which is relevant but does not provide new interpretive insights beyond the statute.
+  [ID: 70c116ca-2f6f-4c55-aa57-f17f58f80bc0] Reasoning: Cites a historical estimate by the director of the mint, which is relevant but does not add significant interpretive value.
+  [ID: 803a5dbc-9b68-4008-ab23-3fa18f4e591c] Reasoning: Discusses a legal standard unrelated to the phrase of interest, thus providing no relevant information.
+  [ID: a3b31321-9c68-48f6-bedd-87c03d12b71a] Reasoning: Directly quotes the statute, providing no new interpretive context or application.
+  [ID: 16149b4f-4445-4603-b079-88e23721ffdf] Reasoning: Another direct quote of the statute, offering no additional interpretive value.
+  [ID: 5c7012e2-9f3c-4494-9c75-7631a0daa2e1] Reasoning: Describes a requirement for a currency certificate related to depreciated currency, which is relevant but does not add significant interpretive depth.
+  [ID: 04a675ea-50ac-4caa-a9f6-a3f1ce340d11] Reasoning: Discusses the content of a certificate related to currency depreciation, which is relevant but lacks depth in interpretation.
+  [ID: 9c6752af-3861-4e8a-b796-16b065cc322e] Reasoning: Mentions the expectation of redemption in standard coin, which is somewhat relevant but lacks depth.
+  [ID: 4742cb4a-7e2a-47ba-a068-2e665261614a] Reasoning: Discusses the issuance of legal tender in relation to standard coin, which is relevant but does not provide significant interpretive value.
+  [ID: aa0fa0f1-1fa8-4ef7-8387-d3a958756cb6] Reasoning: Mentions the equivalence of standard coins in international shipments, which is relevant but lacks depth.
+  [ID: dc939d56-c756-4a1d-a64c-c4bf0cd12af7] Reasoning: Another direct quote of the statute, providing no new interpretive context or application.
+  [ID: 8f7b130d-536f-4296-a814-a4a34d7ad692] Reasoning: Directly quotes the statute, offering no additional interpretive value.
+  [ID: a221c627-c636-4b9b-b845-669cd1a49a59] Reasoning: Another direct quote of the statute, providing no new interpretive context or application.
+  [ID: e2e09ceb-cc22-4278-888c-6c9cb502dca5] Reasoning: Directly quotes the statute, providing no new interpretive context or application.
+  [ID: 0654e249-8979-457a-80c7-9c31c97ff16e] Reasoning: Reiterates the method of comparing standard coins, which is relevant but does not significantly deepen understanding of the statute's application.
+  [ID: d993ab8b-3d44-4b55-8d36-4b9222c9a84d] Reasoning: Another direct quote of the statute, providing no new interpretive context or application.
+  [ID: 101191bc-6fa8-4398-99bb-d14d3dd6b39e] Reasoning: Directly quotes the statute, providing no new interpretive context or application.
+  [ID: edaa2756-e579-4e03-9a56-c8e24213b8d8] Reasoning: Cites a legal reference without providing new interpretive context or application related to the phrase of interest.
+  [ID: 118c1706-7dec-4a15-88a5-40f444109bdd] Reasoning: This sentence discusses patents for coin-counting machines and does not relate to the legal definition or application of 'standard coin'.
+  [ID: 0323c8c8-1ecb-4adb-9779-e92385ab7854] Reasoning: Cites a case but does not provide any substantive interpretation or application of 'standard coin'.
+  [ID: d391013a-fbc6-49c2-ad72-971272c423af] Reasoning: This is a direct quote of the statute, repeating its content without adding any interpretive value.
+  [ID: 70e9e980-dc5a-427c-a6ba-dee7608ef9af] Reasoning: Another direct quote of the statute, providing no new information or context.
+  [ID: d17ad1a1-21c9-46fd-9b8c-d43fc018882d] Reasoning: Discusses the legal implications of the valuations of foreign standard coins, providing context on how these valuations affect customs duties, which adds interpretive value.
+  [ID: dc60c7ad-bd3f-4bfd-be14-9601627b2af2] Reasoning: Explains the review process for a collector's decision regarding the value of a foreign standard coin, which provides context on its application in customs law.
+  [ID: c0054944-6779-4d86-a41e-49e25c483eea] Reasoning: Mentions a standard coin book manual but does not provide any legal context or interpretation related to the statute.
+  [ID: bc68f056-9658-437d-8e89-3aae32860395] Reasoning: Describes a business transaction involving Standard Coin-Op Distributors but does not relate to the legal definition or application of 'standard coin'.
+  [ID: ba74b66d-c6b4-4f81-94d9-96c497f020db] Reasoning: Mentions the value of Standard Coin-Op machines but does not provide legal context or interpretation of 'standard coin'.
+  [ID: 6845cf7d-d57a-4b63-9279-2633b6d545ba] Reasoning: Cites a case name without providing any substantive interpretation or application of 'standard coin'.
+  [ID: ca41a6e8-76fa-4151-a019-d517ef78e933] Reasoning: Discusses bonds and their payment standards but does not provide a clear connection to the legal definition or application of 'standard coin'.
+  [ID: fea18d92-ded0-40da-9fe7-30edd8a9ff28] Reasoning: Mentions the effect of war on currency but does not provide legal context or interpretation of 'standard coin'.
+  [ID: 3a91cb36-bdba-4c70-b792-4898009e7d43] Reasoning: Discusses currency conversion but does not provide a clear legal interpretation or application of 'standard coin'.
+  [ID: 394dbfee-b6ed-45ae-aad7-1180420b97e7] Reasoning: Similar to the previous sentence, it discusses currency conversion without adding legal context or interpretation.
+  [ID: 5ef7ec2d-c3de-4bfa-a32a-74842a0d61a2] Reasoning: Mentions the term 'standard coins' in the context of damages but lacks substantive legal interpretation or application.
+  [ID: 059a33bf-7837-479f-b3a0-4d23b1807665] Reasoning: Discusses the equivalent value of currency but does not provide a clear legal interpretation or application of 'standard coin'.
+  [ID: d93a1acd-ceda-40fb-8b60-a124139ab205] Reasoning: Describes an expert's valuation process for rare coins but does not relate to the legal definition or application of 'standard coin'.
+  [ID: 659d306c-76dd-47cf-99fa-498edf523a92] Reasoning: Repeats the statute verbatim, providing no new information or context.
+  [ID: e91b9214-43f7-43a2-9972-73192b2efb6a] Reasoning: Discusses the intention behind a legal case but does not provide a clear interpretation or application of 'standard coin'.
+  [ID: be4a2e44-1d85-48ec-8c75-c48509b41e30] Reasoning: Uses 'standard coin' metaphorically in a discussion about testimony, lacking legal relevance.
+  [ID: a9d3505c-477e-415a-bf11-82f3db0a0687] Reasoning: Similar to the previous sentence, it uses 'standard coin' metaphorically without legal relevance.
+  [ID: d105457c-cd81-4d20-b0db-5f6f70368995] Reasoning: Repeats the metaphor about testimony being as good as a standard coin, lacking legal relevance.
+  [ID: a33ad8cb-6f9e-4f5d-94ed-22d4b3ed01bc] Reasoning: This sentence provides a factual statement about the value of merchandise in standard coin currency but does not add interpretive context or application.
+  [ID: 2f07dd10-a5a7-4a1d-b0db-89bdec791191] Reasoning: While it mentions standard coin francs, it primarily reiterates the invoice's terms without providing deeper interpretive insight.
+  [ID: 6896c4b0-4765-461f-a14c-6888b57a5263] Reasoning: This sentence explains the invoice's currency equivalence but does not clarify the implications of standard coin francs in a legal context.
+  [ID: 27ce0c7a-1344-48b3-90a0-606cb83d6d7b] Reasoning: This sentence discusses the appraisal process in relation to standard coin francs but lacks specific legal interpretation or application.
+  [ID: b8c37b77-be99-4948-8784-978e4a04936a] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive value.
+  [ID: fed937e0-28ad-44a4-a88a-dfee8f2b954a] Reasoning: This is another direct quote of the statute, repeating the same information without any interpretive context.
+  [ID: 310c09c2-4808-4905-9852-1d9e0063d919] Reasoning: This sentence is a literal repetition of the statute, offering no additional insight or application.
+  [ID: 1735e88b-6672-4b14-8513-785e218a9c22] Reasoning: This sentence discusses the assessment of duty based on currency conversion but does not clarify the role of standard coin in this context.
+  [ID: 2afde234-a1ce-4c7d-871a-c1364afaff63] Reasoning: This is a direct quote of the statute, providing no new interpretive value.
+  [ID: 8d430ddb-87a1-4e22-aa92-d3d32fcbe84f] Reasoning: This sentence references historical legislative instructions but does not provide current interpretive value regarding standard coins.
+  [ID: 42d31a86-3f45-4561-a098-020c4351b602] Reasoning: This sentence discusses similar legislative provisions but does not clarify the application of standard coin in a specific context.
+  [ID: 12de57a3-1fa6-4411-aaeb-9d545bd6296a] Reasoning: This is a direct quote of the statute, providing no new interpretive value.
+  [ID: 9f6fa03a-8f02-43aa-bbeb-41cbda8d77f7] Reasoning: This sentence discusses the method of comparing coins but does not provide specific legal context or application regarding standard coins.
+  [ID: 340492dc-2f51-4c7b-b9c8-79ce68a2a99e] Reasoning: This sentence discusses historical legislative provisions but does not clarify the current application of standard coins.
+  [ID: 6d3d2e54-5aed-4e0a-8d8f-72eb040ca577] Reasoning: This is a direct quote of the statute, providing no new interpretive value.
+  [ID: 2ce0e6f5-6d38-4b72-a83a-3e8f5a9153d1] Reasoning: This is a direct quote of the statute, providing no new interpretive value.
+  [ID: fa575930-416a-46d8-8c22-6e686478c80c] Reasoning: This sentence acknowledges the eight-florin gold piece as a standard coin but does not provide further interpretive context.
+  [ID: 03038af3-27e2-458a-bdea-d3afcdd92f71] Reasoning: This sentence references a case involving the Secretary of the Treasury's proclamation but does not clarify the implications for standard coins.
+  [ID: 2c7826a9-b879-4d24-9e76-2869bdc7b7c0] Reasoning: This sentence states the existence of a foreign standard coin but lacks interpretive depth regarding its application.
+  [ID: 0a7e867c-1172-4ffd-833e-a98704908916] Reasoning: This sentence discusses the historical status of the silver florin as a standard coin but does not provide current legal context.
+  [ID: 38cbf7ca-af32-4a0e-bdc3-688fa6488ab7] Reasoning: This sentence discusses the appellant's contention regarding the pound sterling but does not clarify the implications for standard coins.
+  [ID: 7f9f46a5-88ae-4eae-8ed4-5e25c021cfc4] Reasoning: This is a direct quote of the statute, providing no new interpretive value.
+  [ID: f210f403-5288-4848-ace1-606fa634ad81] Reasoning: This sentence discusses a historical proclamation regarding the value of the standard coin but lacks current interpretive context.
+  [ID: c3c0317c-d654-4df8-bc76-a09a143c39f1] Reasoning: This sentence discusses the value of the paper florin in relation to the standard coin but does not provide deeper legal interpretation.
+  [ID: 8533e918-fff8-4797-858b-026fc13e3d10] Reasoning: This sentence references the tariff act and the value of the standard coin but does not clarify its application in a specific context.
+  [ID: 36c7dd87-9f8b-4ef7-9191-23aadd65f0fb] Reasoning: This sentence provides historical context about India's monetary standard but does not add interpretive value regarding the application of 'standard coin' in the context of U.S. law.
+  [ID: 2917eb15-beeb-4375-aea9-82e6ebf66f80] Reasoning: This sentence discusses the Secretary's authority regarding reliquidation but does not clarify the meaning or application of 'standard coin'.
+  [ID: b1985e3d-3edc-415a-b834-8cd39dea2553] Reasoning: This sentence reiterates the relationship between the difference in value and the proclaimed value without providing new insights into 'standard coin'.
+  [ID: b3d9e248-ac59-4107-8e23-e6fd1509b1ad] Reasoning: This sentence is a direct quote of the statute and does not provide any additional interpretive context.
+  [ID: 1fa07362-0671-48e0-8971-43dcf667182e] Reasoning: This sentence is a citation without context or explanation, providing no interpretive value.
+  [ID: 66716c2f-b361-4e7a-b3ad-92597fc4da2f] Reasoning: This sentence is another direct quote of the statute, offering no new information or context.
+  [ID: 1dd3ee72-c16a-4ddb-98ee-02dbe9b1ec19] Reasoning: This sentence explains the basis for assessing duties but does not clarify the term 'standard coin' in a meaningful way.
+  [ID: 3e97163c-cf7c-4c54-8633-85cfd3190e21] Reasoning: This sentence discusses the collector's actions regarding duties but does not provide clarity on 'standard coin'.
+  [ID: 8f5f26fe-df9f-4c80-92f6-a659bd358793] Reasoning: This sentence poses a question about valuation methods but does not provide a definitive answer or context for 'standard coin'.
+  [ID: 7829677f-b866-4459-a74f-157f5f065b52] Reasoning: This sentence references a table of estimates but does not provide any interpretive context regarding 'standard coin'.
+  [ID: d75a0c57-cca8-44dd-a1d5-c78cac12e139] Reasoning: This sentence states a policy but does not elaborate on the implications or applications of 'standard coin'.
+  [ID: 30e44003-669f-4b7f-806f-e31f84ad0066] Reasoning: This sentence outlines different valuation methods but does not clarify the term 'standard coin' in a meaningful way.
+  [ID: 740b6a0d-be5e-476d-9be4-a95528ff3f70] Reasoning: This sentence is a direct quote of the statute, providing no new information or context.
+  [ID: 38058c1f-7b1e-4108-9da5-6a4db24ae041] Reasoning: This sentence reiterates the statutory language without adding interpretive value.
+  [ID: d4776a96-57c1-4089-a76c-9b152a45b736] Reasoning: This sentence discusses comparing coins but does not clarify the application of 'standard coin' in the context of U.S. law.
+  [ID: 0e32e214-a901-4ecc-8f71-907827704f9a] Reasoning: This sentence provides historical context but does not clarify the current application of 'standard coin'.
+  [ID: 5a292e40-36e7-43fd-8bd7-e4a898d4a859] Reasoning: This sentence is a direct quote of the statute, offering no new information or context.
+  [ID: 464e0ad4-82d5-4c32-a624-c9d9d14e1889] Reasoning: This sentence discusses the interpretation of 'value' but does not clarify the term 'standard coin' in a meaningful way.
+  [ID: 0a9ad554-3336-4d36-ad21-a20f808636f7] Reasoning: This sentence discusses the section's provisions but does not clarify the application of 'standard coin'.
+  [ID: f1d43834-d080-45c3-807c-539622fca646] Reasoning: This sentence provides historical context regarding changes in valuation but does not clarify 'standard coin'.
+  [ID: 4313f4b6-3193-482f-a5de-1558f28542f1] Reasoning: This sentence discusses documentation for depreciated currency but does not clarify 'standard coin' in a meaningful way.
+  [ID: c18bf0a5-c514-464b-a832-ea447a067885] Reasoning: This sentence is a certification statement without context or explanation, providing no interpretive value.
+  [ID: 0a5eb4ce-d251-4119-9c6a-2e6fa905dd25] Reasoning: This sentence states a fact about the silver rupee but does not clarify the application of 'standard coin'.
+  [ID: 9cfd6d03-7560-4521-9f9c-b87742cef904] Reasoning: This sentence discusses the conclusiveness of the director's estimates but does not clarify 'standard coin' in a meaningful way.
+  [ID: ba06bf7a-e367-412a-ac54-e6327654dc69] Reasoning: This sentence references a case but does not provide clarity on 'standard coin' or its application.
+  [ID: 4329235c-e3c3-495f-ae90-5c96d8d1139f] Reasoning: This sentence provides historical context about the estimation of standard coins but does not add new interpretive value beyond the statute's provisions.
+  [ID: 5568c871-d674-4b78-9cb8-b38762bc1a2a] Reasoning: This sentence is a direct quote of the statute, repeating its provisions without any additional context or interpretation.
+  [ID: 694aabd6-c75b-4810-8759-22565b47f030] Reasoning: This sentence is another direct quote of the statute, providing no new information or interpretive context.
+  [ID: c536122a-3e3c-464b-a3bc-d261cc8a4727] Reasoning: This sentence is a direct quote of the statute, repeating its provisions without any additional context or interpretation.
+  [ID: baf637a9-605b-4cb9-aec6-9af5ab51f4f3] Reasoning: This sentence discusses the distribution of a publication in standard coin-operated newsrack boxes, which is unrelated to the statutory definition of 'standard coin'.
+  [ID: cfaec495-3bc3-4ad7-a14c-c48dfb379628] Reasoning: This sentence discusses a consular certificate related to the value of currency in comparison to standard coin currency, providing some context but not directly interpreting the statute.
+  [ID: 9ba7c636-acbe-4675-9cda-1b30c8e77a1c] Reasoning: This sentence explains the requirement for a currency certificate when dealing with depreciated currency, which adds context to the application of standard coin values.
+  [ID: 01f2388d-b8c1-41b5-9e81-ec142a3a041e] Reasoning: This sentence certifies the value of Italian currency in relation to standard coin currency, providing practical application of the concept.
+  [ID: 33efb5a4-ce48-4334-aaab-18dbb45ff539] Reasoning: This sentence discusses the actual amount to be paid for a shipment in relation to standard coin currency, providing context for its application.
+  [ID: d8883e7b-4287-4320-844c-44afbf67b023] Reasoning: This sentence discusses the reviewability of a collector's action regarding the value of a foreign standard coin, providing legal context and implications.
+  [ID: 6a6a7088-478c-4b93-95ad-ce9972a496a8] Reasoning: This sentence clarifies that the basis for assessing duties is the value of the pure metal in standard coins, which is a critical application of the statute.
+  [ID: 735c42f2-eb2f-4f7b-90f8-e5f329f887ea] Reasoning: This sentence discusses the collector's actions regarding the value of a foreign standard coin and its implications for duty assessment, providing important legal context.
+  [ID: c8d0b8a2-73f7-4027-99ce-6ef8593059c3] Reasoning: This sentence presents an estimate of the values of standard coins, which is relevant but does not provide deeper interpretive context.
+  [ID: 5b7fefb5-29f7-467a-9182-a7264d4aeed7] Reasoning: This sentence is a direct quote of the statute, repeating its provisions without any additional context or interpretation.
+  [ID: d2894775-4646-407c-b3ba-0261074d0905] Reasoning: This sentence is a direct quote of the statute, providing no new information or interpretive context.
+  [ID: 14e439b1-53c6-4866-80da-14e88de8d1dd] Reasoning: This sentence is a direct quote of the statute, repeating its provisions without any additional context or interpretation.
+  [ID: 44d30dc4-1fd9-465a-9957-632290794b9a] Reasoning: This sentence is a direct quote of the statute, providing no new information or interpretive context.
+  [ID: 0fac1161-542c-4f1d-b854-9d5ee085da9c] Reasoning: This sentence is a direct quote of the statute, repeating its provisions without any additional context or interpretation.
+  [ID: 3375a84d-cc53-4583-b5ae-794ce5febb3f] Reasoning: This sentence is a direct quote of the statute, providing no new information or interpretive context.
+  [ID: 5ff865d4-f714-40fc-9200-187283ada69e] Reasoning: This sentence is a direct quote of the statute, repeating its provisions without any additional context or interpretation.
+  [ID: 53007455-f305-42b4-ae67-4dc44997f76f] Reasoning: This sentence discusses the conversion of a purchase price into standard coin francs, providing practical application of the concept.
+  [ID: 9b6bb165-daae-4f60-9c76-23c603611748] Reasoning: This sentence discusses the treatment of a valuation in depreciated currency versus standard coin francs, providing important context for the application of the statute.
+  [ID: 33abd2cf-f1e1-4518-8efe-4a399d8c9052] Reasoning: This sentence outlines the duty of the Secretary of the Treasury to issue proclamations regarding standard coin values, which is a direct application of the statute.
+  [ID: 9b3e7539-d762-4221-8600-ea292c72b865] Reasoning: This sentence provides a specific example of a proclamation regarding the value of a standard coin, which adds practical context to the statute's application.
+  [ID: b44f2db0-52a0-4aee-a5fc-901a4c0f2c15] Reasoning: This sentence discusses the conversion of a specific amount into standard coin francs, providing practical application of the statute.
+  [ID: eab2957b-6b85-4094-8445-2b85b8b40d5c] Reasoning: This sentence is a paraphrase of the statute, repeating the same information without adding any new interpretive context.
+  [ID: ad2842ba-effa-45ee-bc8a-30dae4b7e588] Reasoning: This sentence provides a specific application of the standard coin concept in a legal context, discussing the valuation of the silver florin for duty estimation, which adds interpretive depth.
+  [ID: a40645e6-b15b-4820-a82c-85dd60c208f8] Reasoning: This is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 63ecc8ab-c95c-4353-9dc6-f38220c72c0a] Reasoning: This sentence is another direct quote of the statute, repeating the same information without any additional interpretive context.
+  [ID: 0fb92dc9-5a5c-4257-8ff8-8cb5817cd8a8] Reasoning: This sentence discusses a legal right related to a common-law trademark applied to articles of standard coin silver, which provides relevant context and application.
+  [ID: 6e613f98-f49d-4534-8c8d-e83e2c6779d5] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 44ce094a-a4be-412f-ad3a-e1dd01ef8958] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 5d6ce72a-c1c4-44b7-befc-cbbdc20158fb] Reasoning: This sentence mentions a legal action involving Standard Coin Meter, but does not provide any interpretive context related to the phrase of interest.
+  [ID: da5647bf-6eef-41a5-8c41-9b85364b8717] Reasoning: This sentence discusses a lease agreement involving Standard Coin Meter but does not provide relevant interpretive context regarding the phrase of interest.
+  [ID: 02beef66-da09-4e7e-b1c4-5cc15a42f12b] Reasoning: This sentence mentions Coinmach as a successor corporation but does not provide relevant interpretive context regarding the phrase of interest.
+  [ID: bfc27437-d51b-4b98-9320-fbcdd5750a5d] Reasoning: This sentence lists parties in a legal case but does not provide relevant interpretive context regarding the phrase of interest.
+  [ID: c5fb6922-52a2-48fa-b9f8-0f8fe1429680] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: d41e574b-0a1c-4b2b-bf27-38d9c907494a] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 8de9c903-c116-4697-8949-d4513de10ff7] Reasoning: This sentence provides historical context about Congress's actions in 1873 regarding the estimation of standard coins, which adds interpretive value.
+  [ID: 6afe8632-e86d-4f0f-bcb7-d7c0be8b1499] Reasoning: This sentence explains the binding nature of the valuation of foreign standard coins, which provides critical interpretive guidance.
+  [ID: 60f7bbe4-2747-4aaf-bb05-4b86cee07d39] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 9823521b-9aa4-4e38-8bd9-ee7df7d1fb17] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 77e027e9-1a4a-4a93-bcce-0feed7f579af] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 56a7f5c1-641d-46ae-9f70-762123c5357c] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 264a2bc6-f6ab-429d-b9cd-096ee8d858a9] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 9d8e197f-72ae-4d48-a11d-ed5346d9cf89] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 7e98b22e-3400-4c90-90d2-dc6493e6ce35] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: ec1449aa-0b45-4eff-ac50-e84c555c9ba1] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 91898150-2bac-4f0b-aca2-bd3037ca6596] Reasoning: This sentence provides historical context about Congress's actions in 1873 regarding the estimation of standard coins, which adds interpretive value.
+  [ID: 77e6cb32-af5c-4aa9-bcb5-54bf8f736018] Reasoning: This sentence is a direct quote of the statute, providing no new information or context beyond what is already stated in the source statute.
+  [ID: 3435402a-9ab9-4df8-a095-2ac5ba004e5b] Reasoning: This sentence references section 522 of the Tariff Act and its heading, but it does not provide any new interpretive context or application beyond what is stated in the statute.
+  [ID: 4bfca7ba-aea9-46cd-b225-d98eeb764108] Reasoning: This sentence discusses a claim regarding the status of gold coins in Great Britain but does not provide any new interpretive context or application related to the statute.
+  [ID: 08e69215-659f-492a-94c5-29139d52144b] Reasoning: This sentence is a direct quote of the statute regarding the value of foreign coins and their estimation, providing no new interpretive value.
+  [ID: 40703f31-8043-4bf2-ba81-d8ba409ba3a9] Reasoning: This sentence repeats the statutory requirement for estimating the values of standard coins without adding any new context or application.
+  [ID: 13f53b82-1698-4d4a-bb79-6f81ad2ec031] Reasoning: This sentence is another direct quote of the statute, reiterating the same information without providing any new insights.
+  [ID: 81deee0d-f83a-4606-bf3d-e4b734c0b4d4] Reasoning: This sentence discusses the appellant's contention regarding the status of gold coins in Great Britain but does not provide new interpretive context or application.
+  [ID: d70b9399-8e82-4fdc-baa8-e5d8c4e29e72] Reasoning: This sentence is a paraphrase of the statute regarding the value of foreign coins, providing no new interpretive context.
+  [ID: f85adc60-3e01-4a57-b36f-b2e39628deb3] Reasoning: This sentence identifies the eight-florin gold piece as a standard coin of Austria, but it does not provide significant interpretive context or application.
+  [ID: c013a59f-949a-47eb-b161-9c86b8155ff1] Reasoning: This sentence states that the silver florin was a standard coin in Austria, but it does not provide new interpretive context or application.
+  [ID: 08771927-98f0-4e5a-a032-6407017c402c] Reasoning: This sentence references a case involving a proclamation estimating the value of standard coins, but it does not provide new interpretive context or application.
+  [ID: f2deaa98-60cb-4a2f-af35-d18b25a68c51] Reasoning: This sentence discusses the appellant's claim regarding the pound sterling but does not provide new interpretive context or application.
+  [ID: 29f2e0c6-c8cd-43ab-88b2-6edf30c5fdc4] Reasoning: This sentence states that the Secretary found the existence of a foreign standard coin, but it does not provide new interpretive context or application.
+  [ID: be94b6d2-f8eb-4767-8268-cc3f5bf39489] Reasoning: This sentence discusses a coin recognition apparatus, which is unrelated to the legal context of standard coins and provides no interpretive value.
+  [ID: 379d9e22-6db1-4cfc-94c1-d5ec9505da3e] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive value.
+  [ID: dd568b10-7829-44c8-9120-a5208aede84d] Reasoning: This sentence discusses a financial transaction involving stock exchange but does not relate to the legal interpretation of standard coins.
+  [ID: 19e31fc2-2611-4542-9c59-029335a10a9c] Reasoning: This sentence states that the director of the mint estimated values in accordance with the statute, but it does not provide new interpretive context.
+  [ID: e8b1da05-db4d-4d72-8088-ed8d1ec8093f] Reasoning: This sentence discusses the estimation of pure-metal value of foreign standard coins but does not provide new interpretive context or application.
+  [ID: 9dcf6fda-3d1d-47dc-bbb6-218b5c2db904] Reasoning: This sentence discusses the conclusiveness of values estimated by the director of the mint, but it does not provide new interpretive context or application.
+  [ID: 1532cb37-31c3-40c1-84aa-a5e88746413e] Reasoning: This sentence states the basis for reducing foreign standard coins to U.S. currency but does not provide new interpretive context or application.
+  [ID: ef5a8e36-56d8-4335-aaac-bf7a9402b1ad] Reasoning: This sentence discusses the government's proposition regarding the word 'value' but does not provide new interpretive context or application.
+  [ID: dcc10b9e-a2c6-4f11-8a4b-b540b77974c8] Reasoning: This sentence discusses the methods of estimating the value of foreign standard coins but does not provide new interpretive context or application.
+  [ID: ce19ce24-9d42-4b7c-844d-0479b9fa5f88] Reasoning: This sentence states that any change in valuation required a special enactment but does not provide new interpretive context or application.
+  [ID: 3c1f22e5-85b1-46c4-9171-eebe68a2047c] Reasoning: This sentence discusses the conclusiveness of values estimated by the director of the mint but does not provide new interpretive context or application.
+  [ID: 1f6865e5-47b3-42d9-9407-11564cc033b3] Reasoning: This sentence discusses the Klingenberg Case but does not provide new interpretive context or application regarding standard coins.
+  [ID: 909ef30c-423b-4471-ba55-8448dd64c659] Reasoning: This sentence repeats the basis for reducing foreign standard coins to U.S. currency without providing new interpretive context.
 Method: probabilities | Term: standard coin
-NDCG@10: 0.4166666666666666
-NDCG@20: 0.4475212215377815
-NDCG@40: 0.5565729304614374
-NDCG@100: 0.8040543631217917
+NDCG@10: 0.5408242562634447
+NDCG@20: 0.5747835993559184
+NDCG@40: 0.6747019466913813
+NDCG@100: 0.7930223139932212
 
 ----------------------------------------
 STDERR:
@@ -133,10 +225,12 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/8 [00:00<?, ?batch/s]
-GPT batches:  12%|█▎        | 1/8 [00:04<00:28,  4.07s/batch]
-GPT batches:  25%|██▌       | 2/8 [00:17<00:57,  9.60s/batch]
-GPT batches:  38%|███▊      | 3/8 [00:20<00:32,  6.54s/batch]
-GPT batches:  50%|█████     | 4/8 [00:22<00:18,  4.71s/batch]
-GPT batches:  75%|███████▌  | 6/8 [00:22<00:04,  2.24s/batch]
-GPT batches:  88%|████████▊ | 7/8 [00:22<00:01,  1.71s/batch]
-GPT batches: 100%|██████████| 8/8 [00:22<00:00,  2.85s/batch]
+GPT batches:  12%|█▎        | 1/8 [00:08<00:57,  8.28s/batch]
+GPT batches:  25%|██▌       | 2/8 [00:33<01:51, 18.53s/batch]
+GPT batches:  38%|███▊      | 3/8 [00:38<00:59, 11.90s/batch]
+GPT batches:  50%|█████     | 4/8 [00:43<00:37,  9.35s/batch]
+GPT batches:  62%|██████▎   | 5/8 [00:43<00:18,  6.16s/batch]
+GPT batches:  75%|███████▌  | 6/8 [00:45<00:09,  4.58s/batch]
+GPT batches:  88%|████████▊ | 7/8 [00:46<00:03,  3.41s/batch]
+GPT batches: 100%|██████████| 8/8 [00:53<00:00,  4.64s/batch]
+GPT batches: 100%|██████████| 8/8 [00:53<00:00,  6.72s/batch]

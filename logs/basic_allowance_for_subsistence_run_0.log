@@ -1,131 +1,125 @@
 Command: /opt/anaconda3/bin/python rank.py --term basic allowance for subsistence --type probabilities --sentences sources/basic_allowance_for_subsistence/basic_allowance_for_subsistence-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: 35ddd608-4e2c-4652-b752-8265a07cef12] Reasoning: This sentence lists various components of gross income for military members, including 'basic allowance for subsistence'. However, it does not provide any additional context or interpretation regarding the term itself.
+  [ID: 55cf684f-02e6-4988-855e-e71a88ae405a] Reasoning: This is a standalone mention of 'Basic Allowance for Subsistence' without any context or explanation, making it redundant.
+  [ID: 672fc91f-676a-4edc-b327-0c74aca8a499] Reasoning: This sentence explains that 'basic allowance for quarters' and 'basic allowance for subsistence' are not subject to garnishment under federal law, providing a specific application of the term that adds interpretive value.
+  [ID: de1819ec-289b-4cb5-803c-5295b7a27976] Reasoning: This sentence is a direct quote of the statute defining 'regular compensation' and includes 'basic allowance for subsistence'. It does not provide any new interpretive context or application, making it redundant.
+  [ID: 25d1044e-200e-4578-860d-9cf943f3463e] Reasoning: This sentence states that members entitled to basic pay are also entitled to a basic allowance for subsistence, but it does not provide any new interpretive context or application beyond the statute.
+  [ID: 5acb45b1-3274-4cf0-9f51-3f148b443301] Reasoning: This sentence reiterates that basic allowances for subsistence are granted independently of travel requirements, which is already established in the statute, thus offering no new information.
+  [ID: 5cb1d7d8-418b-4a59-a777-aaa1255d80d4] Reasoning: This sentence explains that travel expenses are not related to the basic allowances, but it does not add significant interpretive value beyond what is already stated in the statute.
+  [ID: 0e9db295-d288-4e3a-907a-df2daf443f68] Reasoning: This sentence references a ruling that distinguishes previous rulings regarding basic allowances, but it does not clarify or provide new interpretive context, making it redundant.
+  [ID: 76c60b21-6a33-4a2a-b388-45c205321b82] Reasoning: This sentence states that both permanent military service members and reservists receive basic allowances as a matter of law, which is already implied in the statute, thus lacking new interpretive value.
+  [ID: 7324dd0f-cf81-43ab-a49f-cd5ef93e1be7] Reasoning: This sentence discusses the implications of offsetting travel expenses with basic allowances, but it does not provide new insights or applications beyond the statute's text.
+  [ID: 12d82d4c-e146-4302-9cd2-648eefb6b8c4] Reasoning: This sentence discusses a specific case where lodging expenses were incorrectly offset by basic allowances, but it does not clarify the legal principles involved, making it less valuable.
+  [ID: b54ef70a-1734-4c8c-99f4-0b87a6b69ed9] Reasoning: This sentence states that basic allowances are provided in title 37 of the U.S. Code, which is redundant information already covered by the statute.
+  [ID: 135cdd52-5195-4837-ba95-9544ef91da9b] Reasoning: This sentence cites specific statutes related to back pay and allowances, but it does not provide new interpretive context regarding the basic allowance for subsistence itself.
+  [ID: caf04158-31b1-4099-ac57-427953205b60] Reasoning: This sentence is a direct quote of the statute regarding regular compensation, providing no new interpretive value.
+  [ID: ac1e38ff-aaaf-479b-b754-e5c7567df4e8] Reasoning: This sentence simply states that an individual received various allowances, including basic allowance for subsistence, without providing any new context or application.
+  [ID: 6c1fcf31-e756-417b-8b9e-9f45c5dd089e] Reasoning: This sentence is a fragment that does not provide any context or application regarding the basic allowance for subsistence.
+  [ID: e11be763-04a8-4453-b00b-afe9472d40b0] Reasoning: This sentence is a title or heading that does not provide any substantive information or context regarding the basic allowance for subsistence.
+  [ID: 3dcf4b03-8a3e-43a2-86c1-2e7936d05463] Reasoning: This sentence lists various allowances received by an individual, but it does not provide any new interpretive context or application.
+  [ID: b900fd94-78b3-4c19-9044-92e3e6162b6b] Reasoning: This sentence lists various allowances but does not provide any new context or application regarding the basic allowance for subsistence.
+  [ID: f545c4f7-25c8-406f-9014-14e1992b660d] Reasoning: This sentence describes a legal case involving the basic allowance for subsistence but does not clarify any legal principles or provide new interpretive context.
+  [ID: dd16dc71-b8ce-4318-80e5-7890b0d31414] Reasoning: This sentence discusses a case of improper data entry related to basic allowance for subsistence but does not provide new interpretive context or application.
+  [ID: 5b9c954b-dc12-425a-888d-a6162bdf5c23] Reasoning: This sentence discusses a claim regarding the inclusion of basic allowance for subsistence in child support calculations but does not provide new interpretive context.
+  [ID: 957f6bac-8222-41dc-b1ef-0851d4260ba9] Reasoning: This sentence discusses the classification of basic allowance for subsistence under the Internal Revenue Code but does not provide new interpretive context or application.
+  [ID: 4aa63104-f93d-491e-a369-012a86d07437] Reasoning: Mentions the Basic Allowance for Subsistence in the context of a marriage of convenience, but does not provide any interpretive depth or application of the allowance itself.
+  [ID: 3faed9c7-9c6d-4629-8adc-2798e67d91a0] Reasoning: Lists various compensation elements including the basic allowance for subsistence, but does not explain or interpret its significance or application.
+  [ID: 83fd3ae4-ede2-4f78-8aba-b2bb274aa120] Reasoning: Similar to the previous sentence, it reflects calculations of compensation but lacks any interpretive context regarding the basic allowance for subsistence.
+  [ID: 50ab8e7c-4127-465b-aeae-999f206493a0] Reasoning: Direct quote of Title 37 U.S.C.A. § 251 regarding the basic allowance for subsistence. No additional interpretive value is provided.
+  [ID: 1956b72e-01be-4ffb-973b-00d0ae06b362] Reasoning: Repeats statutory language about entitlement to the basic allowance for subsistence without adding any interpretive context.
+  [ID: 013b025b-8cb2-435d-ad2d-da9d8efd0af1] Reasoning: Another direct quote of the statute regarding the basic allowance for subsistence, providing no new information.
+  [ID: 847d64dd-a08d-4d8d-b84e-71f4c56fd302] Reasoning: Repeats statutory language about entitlement to the basic allowance for subsistence without any additional context or interpretation.
+  [ID: 8d949ba4-2b92-4333-88cd-de74589101c8] Reasoning: Another direct quote of the statute regarding the basic allowance for subsistence, providing no new information.
+  [ID: 0b0f501b-588d-4ba2-a474-4642f802b481] Reasoning: Describes the entitlement to the basic allowance for subsistence in lieu of meals in kind, but does not elaborate on its application or significance.
+  [ID: 3fd34ee0-f0df-4863-b5e5-839622ac2fda] Reasoning: Discusses the nontaxable nature of the basic allowance for subsistence and its implications for calculating regular compensation, providing some interpretive context.
+  [ID: aab64b4e-aa65-4635-8efa-ea325bb0f3cb] Reasoning: Mentions specific amounts for the basic allowance for subsistence but does not provide interpretive context or application.
+  [ID: c27206ec-0fc9-4f8b-95fd-2070242e709a] Reasoning: States that commissioned or warrant officers are entitled to the basic allowance for subsistence but lacks further explanation or context.
+  [ID: 0bb684aa-2d25-4392-b678-3c3049404ff6] Reasoning: Lists various compensation elements including the basic allowance for subsistence but does not provide any interpretive context.
+  [ID: 5537336d-261e-4c42-a732-38784c746221] Reasoning: Mentions denial of basic allowance for subsistence but does not explain the context or implications of this denial.
+  [ID: ece4d92f-a928-4127-be82-aec76d17476a] Reasoning: Describes a court ruling regarding entitlement to basic pay and the Basic Allowance for Subsistence, providing some context about its application.
+  [ID: 609b8ef4-37bc-49f0-8815-bfb8544d3a09] Reasoning: Lists various statutory references related to compensation, including the basic allowance for subsistence, but does not provide interpretive context.
+  [ID: 43a598f1-a92b-43d2-83d3-a252fd09eb27] Reasoning: Mentions overpayment based on various compensation elements including the basic allowance for subsistence, but lacks interpretive depth.
+  [ID: 274c996e-d1d9-4f48-b8a1-d035bf2969f7] Reasoning: Describes entitlements for back payment including the basic allowance for subsistence, but does not provide further context or interpretation.
+  [ID: 5290c201-b279-4f5a-9194-be590a0db274] Reasoning: Mentions claims for Basic Allowance for Subsistence but does not provide any interpretive context or application.
+  [ID: c1ab593b-9d08-4497-85e6-2cebc15376a4] Reasoning: Mentions a chapter title regarding Basic Allowance for Subsistence but does not provide any interpretive context.
+  [ID: 9b37ae69-4ca3-4374-b63f-bc62955c8a09] Reasoning: Mentions the basic allowance for subsistence in a statutory context but does not provide any interpretive depth.
+  [ID: f424d811-6f27-4e85-ab33-8f8646d786ec] Reasoning: Lists direct compensation elements including the basic allowance for subsistence but lacks further explanation or context.
+  [ID: 5b3ac6a9-64e2-4379-997a-773fc3cbbb0c] Reasoning: Mentions amounts claimed including the basic allowance for subsistence but does not provide any interpretive context.
+  [ID: 7617772b-91f4-4ed6-93ca-ac79aba53fd3] Reasoning: Describes entitlements for back pay including the basic allowance for subsistence but does not provide further context or interpretation.
+  [ID: 0ff1f32d-2257-4c8e-b5cb-b056e911b3fd] Reasoning: Similar to previous entries, it describes entitlements for back payment including the basic allowance for subsistence but lacks interpretive depth.
+  [ID: 946a7010-8358-4453-bb2d-24da276dc329] Reasoning: This sentence is a reference to a website about the Basic Allowance for Subsistence but does not provide any interpretive context or application.
+  [ID: 9d1264c5-84bd-41c3-bad6-2b73e5ad88fe] Reasoning: This sentence mentions the basic allowance for subsistence in the context of calculating gross income for temporary support, but it does not elaborate on its implications or legal significance.
+  [ID: 450debf5-1cc6-487f-9846-6a96ba6e63c7] Reasoning: This sentence lists the Basic Allowance for Quarters and Basic Allowance for Subsistence without providing any additional context or application.
+  [ID: ee8da778-841c-4d72-b192-c6a859b1d8c9] Reasoning: This sentence quotes the definition of regular compensation from federal law, which includes the basic allowance for subsistence, but does not add any interpretive value.
+  [ID: 78806b8c-90e7-4650-b4bb-99f4179b24b9] Reasoning: This sentence explains that a parent's income includes the basic allowance for subsistence, but it lacks further context or implications regarding its application.
+  [ID: cd9fbbce-a2f1-4d8b-b40c-a95ed51d9fa2] Reasoning: This sentence provides a specific dollar amount for the Basic Allowance for Subsistence but does not offer any interpretive context.
+  [ID: aab02269-e4b0-4e09-a9cc-08045e8a187f] Reasoning: This sentence repeats the term basic allowance for subsistence without providing any additional context or application.
+  [ID: 5c66054f-1cdc-4ba0-8fff-31ad2270ab2c] Reasoning: This sentence references the compensatory nature of basic allowances but does not provide specific interpretive guidance or application.
+  [ID: 77139e3a-2828-4991-bac7-f9fd014abc57] Reasoning: This sentence is a direct quote from the statute defining regular compensation, providing no new interpretive value.
+  [ID: a028a4e7-381f-4a0f-9a89-0a9c8728b6e8] Reasoning: This sentence discusses a court's decision regarding the use of the basic allowance for subsistence in child support calculations, providing some context.
+  [ID: 7d690782-ad30-47a0-8815-2230c5cbf4a4] Reasoning: This sentence notes that the basic allowance for subsistence is excluded from gross pay under child support guidelines, providing relevant legal context.
+  [ID: 4d49cb19-8857-4d73-beec-c459c02fd43b] Reasoning: This sentence states that basic allowances can constitute large portions of a soldier's income but lacks specific interpretive depth.
+  [ID: b869dfcd-d598-47a6-aec4-74888a852a43] Reasoning: This sentence mentions the basic allowance for subsistence in the context of a soldier's pay but does not provide further interpretive context.
+  [ID: 14a822f1-ed3c-41e6-adef-388817032375] Reasoning: This sentence explains the purpose of the basic allowance for subsistence, providing context about its role in offsetting food costs.
+  [ID: 4d93bcef-eb10-48b7-b6fe-5b7cc3f31c9b] Reasoning: This sentence argues that military allowances are not subject to garnishment, providing a legal interpretation relevant to the basic allowance for subsistence.
+  [ID: a26779d2-c1a5-472b-ab01-f1ebfbec9c1c] Reasoning: This sentence discusses a court's finding regarding a soldier's income increase due to the basic allowance for subsistence, providing relevant legal context.
+  [ID: ff305f13-f859-48d6-878c-e3eeaedabdf7] Reasoning: This sentence provides specific amounts for allowances included in a payment record, but lacks interpretive context.
+  [ID: 5b8240f3-6cf9-4fd6-a279-0e65ddb21c26] Reasoning: This sentence references a regulation titled 'Basic Allowance for Subsistence' but does not provide any additional context or application.
+  [ID: c779263a-8bf0-4863-acb3-c909cb2f167a] Reasoning: This sentence lists various allowances without providing any interpretive context or application.
+  [ID: 9b7f4b7f-404a-4cc4-b539-54dbd38bf2de] Reasoning: This sentence mentions the basic allowance for subsistence in the context of additional allowances but does not provide further interpretive context.
+  [ID: 5c2880e7-0f11-49b1-8ad6-c6e2c44b17d5] Reasoning: This sentence provides a specific amount for the Basic Allowance for Subsistence in Spanish, but does not add any interpretive value.
+  [ID: 20a10aef-ca9d-4bb0-8674-e2d1ecdd6820] Reasoning: This sentence discusses a court case where the basic allowance for subsistence was considered in child support calculations, providing relevant legal context.
+  [ID: 45f1a7c5-dd13-4044-ad9a-ed36c72b4d09] Reasoning: This sentence mentions pay stubs containing records of allowances but does not provide any interpretive context or application.
+  [ID: 2aa335f9-83e3-48d7-9280-1ebc19ffd623] Reasoning: This sentence defines gross income to include various military allowances, including the basic allowance for subsistence, but does not provide further interpretive context.
+  [ID: c08f20c0-dd32-432f-81d6-9be682674d22] Reasoning: This sentence discusses how a trial court determined gross annual income, including the basic allowance for subsistence, but lacks deeper interpretive context.
 Method: probabilities | Term: basic allowance for subsistence
-NDCG@10: 0.46347657865515707
-NDCG@20: 0.5449094307878427
-NDCG@40: 0.6661266038786745
-NDCG@100: 0.8209292814823239
+NDCG@10: 0.7206430472658232
+NDCG@20: 0.73440341914796
+NDCG@40: 0.770437346497474
+NDCG@100: 0.9013068043714323
 
 ----------------------------------------
 STDERR:
@@ -133,8 +127,8 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/4 [00:00<?, ?batch/s]
-GPT batches:  25%|██▌       | 1/4 [00:06<00:18,  6.32s/batch]
-GPT batches:  50%|█████     | 2/4 [00:21<00:23, 11.59s/batch]
-GPT batches:  75%|███████▌  | 3/4 [00:25<00:08,  8.11s/batch]
-GPT batches: 100%|██████████| 4/4 [00:26<00:00,  5.09s/batch]
-GPT batches: 100%|██████████| 4/4 [00:26<00:00,  6.51s/batch]
+GPT batches:  25%|██▌       | 1/4 [00:14<00:43, 14.66s/batch]
+GPT batches:  50%|█████     | 2/4 [01:06<01:12, 36.47s/batch]
+GPT batches:  75%|███████▌  | 3/4 [01:21<00:26, 26.83s/batch]
+GPT batches: 100%|██████████| 4/4 [01:23<00:00, 17.05s/batch]
+GPT batches: 100%|██████████| 4/4 [01:23<00:00, 20.95s/batch]

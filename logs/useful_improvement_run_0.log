@@ -1,188 +1,85 @@
-Command: /opt/anaconda3/bin/python rank.py --term useful improvement --type probabilities --sentences sources/useful_improvement/useful_improvement-sentence.json --provisions sources/provisions.json --verbose false
-----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
-
-You will be given:
-
-The phrase of interest
-
-The statutory or regulatory provision containing that phrase (“the statute”)
-
-A list of candidate sentences, each with a unique sentence_id
-
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
-[
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
-]
-
-
-No explanations, no comments, no reasoning, no additional keys.
-
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
-Method: probabilities | Term: useful improvement
-NDCG@10: 0.04444444444444443
-NDCG@20: 0.0584070291268514
-NDCG@40: 0.15673002278883602
-NDCG@100: 0.28832612923901674
-
-----------------------------------------
-STDERR:
-wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netrc
-wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
-
-GPT batches:   0%|          | 0/155 [00:00<?, ?batch/s]
-GPT batches:   1%|          | 1/155 [00:15<40:02, 15.60s/batch]
-GPT batches:   1%|▏         | 2/155 [00:17<18:42,  7.33s/batch]
-GPT batches:   2%|▏         | 3/155 [00:18<11:07,  4.39s/batch]
-GPT batches:   3%|▎         | 5/155 [00:18<04:50,  1.93s/batch]
-GPT batches:   4%|▍         | 6/155 [00:18<04:01,  1.62s/batch]
-GPT batches:   5%|▍         | 7/155 [00:19<03:02,  1.23s/batch]
-GPT batches:   6%|▌         | 9/155 [00:19<01:47,  1.36batch/s]
-GPT batches:   6%|▋         | 10/155 [00:19<01:32,  1.57batch/s]
-GPT batches:   8%|▊         | 12/155 [00:20<01:02,  2.28batch/s]
-GPT batches:   8%|▊         | 13/155 [00:20<00:58,  2.44batch/s]
-GPT batches:  10%|█         | 16/155 [00:20<00:33,  4.18batch/s]
-GPT batches:  11%|█         | 17/155 [00:21<00:37,  3.66batch/s]
-GPT batches:  12%|█▏        | 19/155 [00:21<00:28,  4.73batch/s]
-GPT batches:  13%|█▎        | 20/155 [00:21<00:25,  5.26batch/s]
-GPT batches:  14%|█▍        | 22/155 [00:21<00:18,  7.13batch/s]
-GPT batches:  15%|█▌        | 24/155 [00:21<00:17,  7.30batch/s]
-GPT batches:  17%|█▋        | 26/155 [00:22<00:20,  6.43batch/s]
-GPT batches:  18%|█▊        | 28/155 [00:22<00:15,  8.14batch/s]
-GPT batches:  21%|██▏       | 33/155 [00:22<00:09, 12.36batch/s]
-GPT batches:  23%|██▎       | 36/155 [00:22<00:08, 14.48batch/s]
-GPT batches:  26%|██▌       | 40/155 [00:22<00:06, 18.51batch/s]
-GPT batches:  28%|██▊       | 43/155 [00:23<00:07, 15.06batch/s]
-GPT batches:  32%|███▏      | 49/155 [00:23<00:04, 22.19batch/s]
-GPT batches:  36%|███▌      | 56/155 [00:23<00:03, 29.76batch/s]
-GPT batches:  39%|███▉      | 61/155 [00:23<00:02, 33.78batch/s]
-GPT batches:  43%|████▎     | 66/155 [00:23<00:02, 36.07batch/s]
-GPT batches:  48%|████▊     | 75/155 [00:23<00:01, 46.14batch/s]
-GPT batches:  52%|█████▏    | 81/155 [00:23<00:01, 43.78batch/s]
-GPT batches:  55%|█████▌    | 86/155 [00:23<00:01, 39.99batch/s]
-GPT batches:  59%|█████▊    | 91/155 [00:24<00:01, 40.95batch/s]
-GPT batches:  63%|██████▎   | 97/155 [00:24<00:01, 44.06batch/s]
-GPT batches:  66%|██████▌   | 102/155 [00:25<00:03, 15.54batch/s]
-GPT batches:  68%|██████▊   | 106/155 [00:25<00:03, 15.26batch/s]
-GPT batches:  71%|███████   | 110/155 [00:25<00:02, 17.47batch/s]
-GPT batches:  73%|███████▎  | 113/155 [00:25<00:02, 18.24batch/s]
-GPT batches:  75%|███████▍  | 116/155 [00:26<00:05,  7.51batch/s]
-GPT batches:  76%|███████▌  | 118/155 [00:27<00:05,  7.27batch/s]
-GPT batches:  77%|███████▋  | 120/155 [00:27<00:04,  7.04batch/s]
-GPT batches:  79%|███████▊  | 122/155 [00:27<00:04,  7.14batch/s]
-GPT batches:  80%|████████  | 124/155 [00:28<00:04,  6.55batch/s]
-GPT batches:  81%|████████  | 125/155 [00:28<00:04,  6.01batch/s]
-GPT batches:  81%|████████▏ | 126/155 [00:28<00:04,  6.41batch/s]
-GPT batches:  82%|████████▏ | 127/155 [00:28<00:04,  5.98batch/s]
-GPT batches:  83%|████████▎ | 128/155 [00:28<00:04,  6.33batch/s]
-GPT batches:  85%|████████▌ | 132/155 [00:28<00:01, 11.56batch/s]
-GPT batches:  87%|████████▋ | 135/155 [00:28<00:01, 14.95batch/s]
-GPT batches:  92%|█████████▏| 142/155 [00:29<00:00, 23.84batch/s]
-GPT batches:  94%|█████████▎| 145/155 [00:29<00:00, 21.50batch/s]
-GPT batches:  95%|█████████▌| 148/155 [00:32<00:02,  3.30batch/s]
-GPT batches:  97%|█████████▋| 150/155 [00:33<00:01,  2.52batch/s]
-GPT batches:  98%|█████████▊| 152/155 [00:39<00:02,  1.12batch/s]
-GPT batches:  99%|█████████▉| 154/155 [00:39<00:00,  1.43batch/s]
-GPT batches: 100%|██████████| 155/155 [00:39<00:00,  3.94batch/s]
+Term: useful improvement | Model: openai/gpt-oss-120b | Mode: probabilities
+Error parsing JSON: Expecting ',' delimiter: line 26 column 24 (char 892)
+Original Text snippet (first 2000 chars): {
+  "results": [
+    {
+      "sentence_id": "10101fd7-dab5-4100-b8f2-c7eb1295f9b5",
+      "reasoning": "Only mentions the phrase in procedural context without adding interpretation.",
+      "probs": {
+        "no value": 0.85,
+        "potential value": 0.10,
+        "certain value": 0.04,
+        "high value": 0.01
+      }
+    },
+    {
+      "sentence_id": "9134e605-da82-4401-b09c-a75736073c4e",
+      "reasoning": "Supreme Court explains that a \"new and useful improvement\" must be more than an obvious improvement, providing a clear definition.",
+      "probs": {
+        "no value": 0.02,
+        "potential value": 0.03,
+        "certain value": 0.15,
+        "high value": 0.80
+      }
+    },
+    {
+      "sentence_id": "8bf7e803-d044-4da7-8147-d0d3d9cc8466",
+      "reasoning": "Restates the statutory language verbatim, offering no additional insight.",
+      "probs": {
+        "no value": 0.9ty,
+        "potential value": 0.07,
+        "certain value": 0.02,
+        "high value": 0.01
+      }
+    },
+    {
+      "sentence_id": "a2b6f326-f7e0-4628-8d56-92afbaa59160",
+      "reasoning": "Provides a concrete example of a patented \"new and useful improvement,\" illustrating scope.",
+      "probs": {
+        "no value": 0.10,
+        "potential value": 0.20,
+        "certain value": 0.65,
+        "high value": 0.05
+      }
+    },
+    {
+      "sentence_id": "eebc653d-a266-409e-8b39-6d23aac61326",
+      "reasoning": "A complaint merely asserts a claim to a \"new and useful improvement\" without interpretive content.",
+      "probs": {
+        "no value": 0.88,
+        "potential value": 0.09,
+        "certain value": 0.02,
+        "high value": 0.01
+      }
+    }
+  ]
+}...
+Parse error for useful improvement, retrying... (Expecting ',' delimiter: line 26 column 24 (char 8)
+wandb: setting up run 4wzkc0su
+wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /Users/alvinwang/cs/Retrieval/Retrieval/wandb/run-20260424_115148-4wzkc0su
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run lunar-fire-43
+wandb: ⭐️ View project at https://wandb.ai/alvinw2-carnegie-mellon-university/statutory-term-ndcg-eval
+wandb: 🚀 View run at https://wandb.ai/alvinw2-carnegie-mellon-university/statutory-term-ndcg-eval/runs/4wzkc0su
+wandb: updating run metadata; uploading artifact run-4wzkc0su-sentences; uploading media/table/sentences_0_eff55a1541db987c481a.table.json; uploading artifact run-4wzkc0su-confusion
+wandb: uploading artifact run-4wzkc0su-sentences; uploading artifact run-4wzkc0su-confusion; uploading config.yaml
+wandb: uploading artifact run-4wzkc0su-sentences; uploading artifact run-4wzkc0su-confusion
+wandb: uploading history steps 0-0, summary
+wandb: 
+wandb: Run history:
+wandb:  ndcg@10 ▁
+wandb: ndcg@100 ▁
+wandb:  ndcg@20 ▁
+wandb:  ndcg@40 ▁
+wandb: 
+wandb: Run summary:
+wandb:  ndcg@10 0.48715
+wandb: ndcg@100 0.5564
+wandb:  ndcg@20 0.51969
+wandb:  ndcg@40 0.55846
+wandb: 
+wandb: 🚀 View run lunar-fire-43 at: https://wandb.ai/alvinw2-carnegie-mellon-university/statutory-term-ndcg-eval/runs/4wzkc0su
+wandb: ⭐️ View project at: https://wandb.ai/alvinw2-carnegie-mellon-university/statutory-term-ndcg-eval
+wandb: Synced 4 W&B file(s), 2 media file(s), 4 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260424_115148-4wzkc0su/logs

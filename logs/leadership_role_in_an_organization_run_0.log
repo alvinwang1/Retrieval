@@ -1,131 +1,82 @@
 Command: /opt/anaconda3/bin/python rank.py --term leadership role in an organization --type probabilities --sentences sources/leadership_role_in_an_organization/leadership_role_in_an_organization-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: 06a18ddc-4eb8-4431-9eae-4c6d04d32a11] Reasoning: This sentence paraphrases the statute by stating that the district court must consider the juvenile's leadership role in an organization. It does not provide any new interpretive context or application.
+  [ID: 0f313dbe-f531-4f45-b3b5-c01485c33395] Reasoning: This sentence is a direct quote of the statute regarding the court's requirement to consider the juvenile's leadership role. It adds no new information or context.
+  [ID: 29b01bf3-0a32-458f-bc22-b47c8f611cf3] Reasoning: This sentence is another direct quote of the statute, reiterating the requirement for the court to consider the juvenile's leadership role. It does not provide any additional interpretive value.
+  [ID: 2c39c2d9-12dd-4508-b9a3-b120a95b0398] Reasoning: This sentence discusses a different context of leadership roles in relation to zoning applications, which is not relevant to the phrase of interest or the source statute. It does not pertain to juvenile offenses.
+  [ID: 44138a45-f098-4ea7-ab9d-d238eb3585be] Reasoning: This sentence discusses the power of a pastor in a leadership role, which is unrelated to the context of juvenile offenses or the specific statutory provision. It does not add any relevant interpretive value.
+  [ID: cb085c59-5891-4ac3-9cf9-1d7d611db0f7] Reasoning: Direct quote of the statute. No interpretive value beyond the statute itself.
+  [ID: 2ac38fc8-9bec-485d-a139-7e04ae066153] Reasoning: This sentence is a direct quote from the statute, providing no new information or context.
+  [ID: 663ec02d-f44c-4758-8e7c-1c720c1e1ed6] Reasoning: Another direct quote of the statute. It does not add any interpretive context.
+  [ID: dc77ea93-a41a-4056-8139-16db7e773452] Reasoning: This is a repetition of the statutory text without any additional interpretive value.
+  [ID: 824bb9d6-82f8-4fc7-b415-be7d74ddaf53] Reasoning: This sentence is a direct quote from the statute, providing no new information or context.
+  [ID: 4932374b-65a7-4668-8e85-be01bfeb5547] Reasoning: This sentence provides a specific case example where a leadership role was assessed, adding context to the application of the statute.
+  [ID: be60e019-dd00-4abc-a431-7cfface9808e] Reasoning: This is a direct quote of the statute, providing no new information or context.
+  [ID: 2ae42fc6-f8b7-42fd-8b0a-89604f60eccd] Reasoning: This sentence reiterates the statutory text without adding any interpretive context.
+  [ID: 390dea6e-e69c-4a9c-95ed-65d0cb2c7947] Reasoning: This is a direct quote of the statute, providing no new information or context.
+  [ID: eb2fefb6-ce31-4caf-8009-6f4146947bc6] Reasoning: This sentence discusses the requirement for the government to show a leadership role, adding some context to the application of the statute.
+  [ID: b8670fd4-16aa-47f5-a394-4633a90f7119] Reasoning: This is a direct quote of the statute, providing no new information or context.
+  [ID: 34d76685-9af7-4de6-b1e0-4d0de042c010] Reasoning: This sentence discusses enhancements related to a leadership role, providing context on how such roles are treated under sentencing guidelines.
+  [ID: 91a7fc7b-fac7-4fe8-9a68-328536f76273] Reasoning: This sentence explains the conditions under which a leadership role is considered for sentencing enhancements, adding interpretive value.
+  [ID: 7c32f204-623f-452a-8bc8-30b05a3803ea] Reasoning: This is a direct quote of the statute, providing no new information or context.
+  [ID: 590371b9-298c-4afa-b83f-c27963e8cd35] Reasoning: This is a direct quote of the statute, providing no new information or context.
+  [ID: f7430a97-166e-4407-b5ba-7958116ad0ee] Reasoning: This sentence discusses a pastor's role in an organization, but it does not relate directly to the juvenile context of the statute.
+  [ID: e3ed4380-9206-48b8-8282-6b8df5e04e89] Reasoning: This sentence discusses a leadership role in a different context, not directly related to the juvenile statute.
+  [ID: 1250831b-11cd-428f-950c-6b7687af8645] Reasoning: This is a direct quote of the statute, providing no new information or context.
+  [ID: 517ec149-8b6f-4556-9291-07b3296db756] Reasoning: This sentence explains the implications of finding a leadership role, adding context to the statute's application.
+  [ID: e8bd890e-cb70-4c4d-b89f-202b65f4599b] Reasoning: This is a direct quote of the statute, providing no new information or context.
+  [ID: 83dda58a-b772-41b0-93fb-c1d77d3b6c86] Reasoning: This is a direct quote of the statute, providing no new information or context.
+  [ID: 058512ba-d686-4a68-a145-111cb6b84c92] Reasoning: This is a direct quote of the statute, providing no new information or context.
+  [ID: d578a31a-4820-473c-93a5-3a12bdf7eb75] Reasoning: This sentence discusses the court's consideration of the factors in the statute, adding context to its application.
+  [ID: 61a3bfd5-3920-4c5b-bcb0-57983963332c] Reasoning: This sentence discusses a leadership role in a different context, not directly related to the juvenile statute.
+  [ID: 0b9ab90e-d63c-417a-b134-1fd63a018b1b] Reasoning: This sentence discusses a leadership role in a different context, not directly related to the juvenile statute.
 Method: probabilities | Term: leadership role in an organization
-NDCG@10: 0.5217771930902685
-NDCG@20: 0.691308810024958
-NDCG@40: 0.7130694680720825
-NDCG@100: 0.7130694680720825
+NDCG@10: 0.8098055978329121
+NDCG@20: 0.8633588383220447
+NDCG@40: 0.8633588383220447
+NDCG@100: 0.8633588383220447
 
 ----------------------------------------
 STDERR:
@@ -133,6 +84,6 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/2 [00:00<?, ?batch/s]
-GPT batches:  50%|█████     | 1/2 [00:06<00:06,  6.75s/batch]
-GPT batches: 100%|██████████| 2/2 [00:32<00:00, 17.78s/batch]
-GPT batches: 100%|██████████| 2/2 [00:32<00:00, 16.13s/batch]
+GPT batches:  50%|█████     | 1/2 [00:09<00:09,  9.61s/batch]
+GPT batches: 100%|██████████| 2/2 [00:44<00:00, 24.47s/batch]
+GPT batches: 100%|██████████| 2/2 [00:44<00:00, 22.24s/batch]

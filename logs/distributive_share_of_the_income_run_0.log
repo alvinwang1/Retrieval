@@ -1,131 +1,217 @@
 Command: /opt/anaconda3/bin/python rank.py --term distributive share of the income --type probabilities --sentences sources/distributive_share_of_the_income/distributive_share_of_the_income-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: 0c59f1ca-476b-4487-9fc3-ac8bb39cdfa0] Reasoning: This sentence states a general principle about taxation of a partner's distributive share of income but does not provide any specific application or context that adds interpretive value.
+  [ID: 01b157c3-bb9e-498a-ac0b-5a543330e6b0] Reasoning: This sentence provides a specific example of a couple reporting their distributive share of income, but it lacks broader interpretive context or legal analysis.
+  [ID: c852c445-8193-404d-bd59-be28c7ee5bf7] Reasoning: This sentence reports a specific amount as a distributive share of income but does not provide any interpretive context or legal significance.
+  [ID: 9d44d4ea-bb2f-42a3-ba5f-f289ba8a17ec] Reasoning: This sentence describes how beneficiaries reported their distributive shares of income but does not add any interpretive depth or legal analysis.
+  [ID: 35f5eb41-e3e9-4dfb-8503-10f2095eb474] Reasoning: This sentence explains how income from an estate is treated for tax purposes, providing some context about the distributive share of income, which adds interpretive value.
+  [ID: 1a413ddb-9568-40a3-9fad-f2fc98e06730] Reasoning: This sentence discusses the lack of entitlement to a distributive share of income, which provides some interpretive context regarding the conditions under which such shares are taxable.
+  [ID: ce94099b-fed4-4a5d-8498-c7117fe17a3d] Reasoning: This sentence describes a specific trust arrangement and the distribution of income to grandchildren, providing context for how distributive shares can be structured.
+  [ID: 82765a69-e6dc-44c5-8aa5-b222dfbf9478] Reasoning: This sentence references a case that clarifies the intent of Congress regarding the taxation of distributive shares, providing significant interpretive guidance.
+  [ID: 2a83ab47-0926-41d4-be2f-8a94a46f4a24] Reasoning: This sentence reiterates a previous statement about Congress's intent regarding distributive shares, but it does not add new interpretive value.
+  [ID: 274d7d64-cd7b-495b-8ef6-82105ab31b90] Reasoning: This sentence discusses a court ruling regarding a life tenant's entitlement to a distributive share, providing relevant legal context and application.
+  [ID: 211ee0ef-9c0d-4142-9f14-c9517d4c90df] Reasoning: This sentence reports amounts reported on tax returns as distributive shares but lacks interpretive context or legal significance.
+  [ID: 038a61bb-5574-40a9-9c32-7933f13799ac] Reasoning: This sentence repeats a previous statement about Congress's intent regarding distributive shares without adding new information.
+  [ID: b95e2756-27f2-440c-9c87-10f295a499d5] Reasoning: This sentence describes a trust arrangement for distributing income to grandchildren, providing context for how distributive shares can be structured.
+  [ID: fd7c00de-41e5-4896-b8b7-032dadc19519] Reasoning: This sentence repeats a previous statement about the tax treatment of income from an estate without adding new information.
+  [ID: 62072683-743c-4fc9-aa09-6c9ab08f50f2] Reasoning: This sentence describes a specific payment made to a legatee as a distributive share of income, but lacks broader interpretive context.
+  [ID: 46de00ca-a5ab-4969-920b-6a5a6bf213e6] Reasoning: This sentence repeats a previous statement about the trust arrangement for distributing income to grandchildren without adding new information.
+  [ID: 02ee98bd-e5ac-41f9-b262-0a1d5c0ce086] Reasoning: This sentence discusses a life tenant's entitlement to a specific share of income, providing relevant legal context and application.
+  [ID: 8c57d891-b2e4-4775-89be-225dab2ac7a7] Reasoning: This sentence discusses an adjustment to a distributive share of income from a partnership, providing context for how such shares can be affected by tax issues.
+  [ID: 66d4d690-f9cd-4e8f-bf05-8a610a0d7ce8] Reasoning: This sentence repeats a previous statement about the tax treatment of income from an estate without adding new information.
+  [ID: 738c9952-64ea-4eac-8c5e-9175f3869f13] Reasoning: This sentence discusses the reporting of earnings and the distributive share of income for nonresident owners or partners, providing context on tax obligations but lacks deeper interpretive analysis.
+  [ID: 24d6874b-1747-456e-a6f5-15cd433a13e7] Reasoning: This sentence clarifies that the distributive share of income from timber sales must be reported as ordinary income, which is a significant application of the term in a specific context.
+  [ID: 0ceec710-1413-4994-bc1c-645f491d7570] Reasoning: This sentence merely states that beneficiaries received their distributive share of income and assets, providing no additional interpretive context.
+  [ID: 4fc772b6-fb85-4953-bf47-0aeedff107af] Reasoning: This sentence repeats the concept of distributive share of income without adding any new interpretive context or application.
+  [ID: 9d023182-e9ee-4474-99d3-597885a03b11] Reasoning: This sentence discusses a specific legal situation regarding the distribution of income upon a contingency, providing a nuanced interpretation of how distributive shares can be affected by conditions.
+  [ID: de9bc479-1a45-4b09-bc35-58e9b89ce121] Reasoning: This sentence interprets the term 'issue' in the context of a trust, explaining how it affects the distributive share of income, thus providing valuable interpretive guidance.
+  [ID: a647820d-7d2c-4ace-b321-d89ac9a8a585] Reasoning: This sentence is similar to the previous one, repeating the concept of distributive share of income without adding new information.
+  [ID: 8a9347d5-385c-458d-a616-db17cf70570d] Reasoning: This sentence discusses the entitlement of a life tenant to a specific share of income, providing context on how distributive shares are calculated and distributed.
+  [ID: 8c1cb9c4-7e54-440d-b7ab-d16c73afe0ef] Reasoning: This sentence clarifies the nature of the payment made to the life tenant, distinguishing it from capital depreciation, which adds interpretive value regarding the nature of distributive shares.
+  [ID: 407f2a9c-0f8d-40a1-964c-5bb528eca39a] Reasoning: This sentence describes a receipt and release related to a distributive share of income, but it does not provide significant interpretive context.
+  [ID: f0b3f437-1889-4704-811e-f92cc33afff2] Reasoning: This sentence is a straightforward acknowledgment of receipt of a distributive share, providing no additional interpretive context.
+  [ID: 12e44615-a8b5-4291-b26d-e641c673242b] Reasoning: This sentence discusses the bequest of net income to descendants, providing context on how distributive shares are structured in a will, which adds interpretive value.
+  [ID: 806bce1b-f5fd-4a67-9bc2-038168505ad1] Reasoning: This sentence discusses an agreement regarding the distributive share of income, providing context on the distribution process and its implications.
+  [ID: ae849550-0fff-40e6-88e4-ac33277e70ba] Reasoning: This sentence discusses the terminology around distributive shares of income in trusts, providing a critical interpretive distinction that aids understanding.
+  [ID: 016c13f3-35c2-4158-9dd8-a6a3049414df] Reasoning: This sentence discusses a legal dispute over the distributive share of income, providing context on how such disputes can arise and be resolved.
+  [ID: 51fcd58f-1ae1-402b-a73a-540912c90318] Reasoning: This sentence discusses a claim for a distributive share of income, providing context on how such claims are made and the legal basis for them.
+  [ID: 3c255bb8-680d-4eab-be93-b05642daabcd] Reasoning: This sentence denies a claim for a distributive share of income, providing context on legal rights and disputes related to income distribution.
+  [ID: 7a4fadbb8-fa3f-44b1-aef9-4f8b12ce2502] Reasoning: This sentence discusses the realization of distributive share of income or loss from a pass-through entity, providing context on tax implications and the nature of income distribution.
+  [ID: 41807237-af05-49d6-88e9-eb08eb278dff] Reasoning: This sentence discusses a tax credit related to distributive shares of income, providing context on tax obligations and implications for taxpayers.
+  [ID: 188d25da-dfcb-4211-82e1-1429c007d986] Reasoning: This sentence states that part of the plaintiff's income consisted of a distributive share from trusts, but it lacks deeper interpretive context.
+  [ID: acf0036d-107f-43c4-8747-0fa764493e39] Reasoning: This sentence discusses the acknowledgment of payment for a distributive share of income, but it does not provide significant interpretive context.
+  [ID: 8018c7ef-1b5a-4f11-8dba-b88e9927df64] Reasoning: This sentence describes an application for an order directing payment from a distributive share of income, but it lacks deeper interpretive context.
+  [ID: 1f8964d1-c7ac-4154-a821-0c61bce5c4de] Reasoning: This sentence provides a factual account of the petitioner's reported distributive share of income from partnerships, but does not add any interpretive context or legal analysis.
+  [ID: 42c3d1fb-0049-4af8-8970-71bab4574fbf] Reasoning: This sentence discusses a tax deficiency assessment based on the nature of the distributive share of income, indicating a legal interpretation of what constitutes taxable income, which adds some context.
+  [ID: dae215db-0a43-4099-bde6-7271d6464f9b] Reasoning: This sentence references a case that clarifies the rights of a life beneficiary to receive a specific portion of income, providing interpretive context regarding distributive shares.
+  [ID: c9ffbca4-5bde-4723-917b-7608a14b4c8b] Reasoning: This sentence suggests an interpretation of the language regarding the sharing of distributive income, but lacks depth in legal analysis or application.
+  [ID: 6f705d3b-4a59-4a0f-ba90-e5790325a0e0] Reasoning: This sentence is a repeat of the previous one, providing no new information or context.
+  [ID: 01fcbaa4-c53f-4cac-a039-7eaa63830b46] Reasoning: This sentence quotes a statute regarding the computation of net income for beneficiaries, which is redundant and does not provide new interpretive value.
+  [ID: 87757eb0-9493-43a6-a9d3-1cc401fa7cfe] Reasoning: This sentence states that testamentary trust beneficiaries were not liable for income tax on their distributive shares, but lacks further context or analysis.
+  [ID: 8c0019e7-d2db-4c4b-9939-38d03f63f8f4] Reasoning: This sentence discusses tax implications of spreading income distribution over years, providing some context on tax strategy related to distributive shares.
+  [ID: fbc52fb6-6323-49f7-80bd-db9fc8424976] Reasoning: This sentence mentions the allocation of net income from a partnership as distributive shares, but does not provide significant interpretive depth.
+  [ID: 2bd019c5-b328-4185-837b-a2a83f99f304] Reasoning: This sentence indicates that certain plaintiffs claimed their distributive share as self-employment income, which adds context to the application of distributive shares.
+  [ID: e9696bd8-8e0b-4c56-bf61-5165b1aa9cef] Reasoning: This sentence explains how net income is taxed according to distributive shares, providing a clear application of the concept.
+  [ID: cabd5e40-8d88-410a-8da9-d18212f74888] Reasoning: This sentence provides specific amounts reported as distributive shares, but lacks interpretive context or legal analysis.
+  [ID: c75b4c71-39e9-4a18-a998-fba8e0d47a26] Reasoning: This sentence discusses a Chancellor's findings regarding the distribution of income, providing some context but lacking deeper legal analysis.
+  [ID: d941d696-67b5-4bf9-9ee0-ed3c19a5ec6d] Reasoning: This sentence involves a legal dispute over the right to deduct interest from a distributive share, providing context for legal interpretation.
+  [ID: 371d7c24-5a16-4cfd-afa3-ec640fd58504] Reasoning: This sentence interprets the distribution of income shares among beneficiaries, providing some context but lacking depth.
+  [ID: 725d0840-f87c-4521-bb7f-eb6350acea01] Reasoning: This sentence raises a question about the interpretation of a will regarding income distribution, indicating a legal ambiguity.
+  [ID: c73b8c08-cb85-42fe-ad1d-109272a0f882] Reasoning: This sentence states that beneficiaries should not receive additional amounts beyond their distributive share, but lacks further context or analysis.
+  [ID: 0451607b-6a71-4ad2-b003-2a27f10f545d] Reasoning: This sentence discusses a tax court action regarding a distributive share, but does not provide significant interpretive context.
+  [ID: 1a823413-2c17-4401-beec-ad951be7c5ba] Reasoning: This sentence mentions the assumption of funds from a distributive share, but lacks depth in legal analysis or application.
+  [ID: ea051b2b-64d4-4a67-8ebf-0fb91c84c089] Reasoning: This sentence discusses the role of beneficiaries in receiving distributive shares, but does not provide significant interpretive context.
+  [ID: f82db1b7-a8c3-49b4-b8e6-a3400abe27c7] Reasoning: This sentence discusses the rights of a life beneficiary regarding distributive shares, providing some context but lacking depth.
+  [ID: d1b0bd18-96fe-48b0-a16c-cf4af4a3c2be] Reasoning: This sentence states that a life beneficiary can take a distributive share, but lacks further context or legal analysis.
+  [ID: b48bb0df-c5e6-4344-833a-f4320b74e4a4] Reasoning: This sentence discusses conditions under which net income is distributed to grandchildren, providing some context but lacking depth.
+  [ID: 840ecfad-7bc4-4a93-a323-4795030f6a82] Reasoning: This sentence discusses a legal motion regarding the nature of distributive shares, indicating a legal dispute but lacking depth in analysis.
+  [ID: 06326fe1-41ef-44ef-928a-9013c2121247] Reasoning: This sentence reiterates the provisions regarding the distributive share of income for beneficiaries of an estate or trust without adding any new interpretive context.
+  [ID: b6c4e009-a2de-4b43-923c-aea35f132428] Reasoning: This sentence explains how discharge of indebtedness income is passed through to partners based on their distributive share, providing context on the application of the term.
+  [ID: 104b5f18-e848-445e-b0ea-d2f0937dc588] Reasoning: This sentence discusses the adjustment of a partner's basis in relation to their distributive share of income, which adds interpretive depth regarding tax implications.
+  [ID: f0b20cc9-9088-4917-bdae-0ea6e977c174] Reasoning: This sentence describes how an increase in partnership income affects a partner's distributive share, providing practical implications of the term.
+  [ID: 92569975-bbeb-4aa6-b9c6-7e9535e731be] Reasoning: This sentence discusses the implications of treating a distributive share of income as passive activity income, which adds interpretive context.
+  [ID: 9be87e0e-3ae3-4785-b336-f69559c9b408] Reasoning: This sentence repeats the earlier sentence regarding the computation of net income for beneficiaries without adding new information.
+  [ID: 2e646f05-7b37-431a-85cb-5138f465479f] Reasoning: This sentence states that the taxpayer reported their distributive share in conformity with a specific section, but does not provide additional interpretive context.
+  [ID: 9b171323-0634-45b5-bddc-2534dc78962d] Reasoning: This sentence describes a specific amount reported as income but does not provide any interpretive context or application.
+  [ID: c3a86f0d-5b87-4475-b0ab-6395ed7db2f2] Reasoning: This sentence discusses the tax liability implications of assigning a portion of a distributive share, providing context on tax obligations.
+  [ID: 91fea7a1-a460-401a-a354-972b9e514551] Reasoning: This sentence indicates an adjustment to a partner's distributive share based on a revenue agent's report, providing practical implications.
+  [ID: 43e42c74-1a91-4705-958c-1b13a812df76] Reasoning: This sentence discusses the inclusion of certain amounts in distributive shares that the petitioner claims were exempt, adding context to tax disputes.
+  [ID: e8339f1c-7b95-47a9-9de8-572e9666d26b] Reasoning: This sentence references a case that clarifies when a partner's distributive share is taxable, providing important interpretive guidance.
+  [ID: 5f80afeb-2814-46a3-9dba-53feb1147901] Reasoning: This sentence states that a partner's distributive share is taxable in the year of partnership termination, providing clarity on tax timing.
+  [ID: f9511b1d-9fb2-4b2a-874f-2119a31dac9f] Reasoning: This sentence discusses the distributions received by income beneficiaries, but does not provide new interpretive context regarding distributive shares.
+  [ID: 2065dd08-41fe-406f-bfe8-c9a1d57078db] Reasoning: This sentence provides a specific amount related to a distributive share but lacks interpretive context or application.
+  [ID: a6a0ee98-7d48-4faa-9895-379c221ba664] Reasoning: This sentence states that a distributive share is taxable as ordinary income, but does not provide additional context or application.
+  [ID: aded74fc-7b7c-4ffa-9abd-df68484ccacf] Reasoning: This sentence discusses a legal action regarding tax liability and distributive shares, but does not clarify the application of the term.
+  [ID: 04fce82a-c8d1-4a6b-88f4-89bae39c4b72] Reasoning: This sentence discusses capital gain and distributive shares but does not provide new interpretive context or application.
+  [ID: 5e9403bc-da38-4ac4-b07e-73b43a20db22] Reasoning: This sentence discusses the entitlement of a life tenant to a distributive share of income, but does not provide new interpretive context.
+  [ID: 2871cc6a-75cc-4a14-9ab7-da703852b030] Reasoning: This sentence states that a payment made by a trustee is a distributive share but lacks interpretive context or application.
+  [ID: 660de877-640b-44ba-ad9b-9e0116ec9230] Reasoning: This sentence is a direct quote of the statute and does not provide any new interpretive value.
+  [ID: a698f773-763a-49e8-8ce2-4fe6e7f5a57e] Reasoning: This sentence states that partners reported their distributive shares in their returns but does not provide additional context or application.
+  [ID: cabeb394-c29f-4f02-990f-fc19596b08a7] Reasoning: This sentence discusses the excess of a distributive share but does not provide new interpretive context or application.
+  [ID: 1d1b55e5-22bd-4e48-82c4-f97dde8fbe30] Reasoning: This sentence discusses a partner's contestation of their distributive share but lacks interpretive context or application.
+  [ID: 5a7a3539-273f-4fb3-8fd3-4f0fd4ff4ffb] Reasoning: This sentence states that self-employment taxes were paid on a distributive share but does not provide additional interpretive context.
+  [ID: 16586a2d-b178-413c-91e1-61cc660840e3] Reasoning: This sentence discusses a specific case involving a distributive share of income from a partnership, but it does not provide any interpretive context or legal analysis that would enhance understanding of the term.
+  [ID: 867b7dca-926c-4ceb-a311-902928df87cb] Reasoning: This sentence explains the inclusion of a distributive share of income in the computation of deductions, which provides some context for its application in tax law.
+  [ID: d2207caf-54c8-4eb5-ab10-572f705969e1] Reasoning: This sentence lists specific instances of distributive shares included in a decedent's final income tax return, but it lacks interpretive depth or analysis.
+  [ID: 31466f8b-3a48-48d3-b09b-46b9204020e9] Reasoning: This sentence addresses a tax liability controversy regarding a distributive share of income from a partnership, but it does not provide further interpretive context.
+  [ID: 826a0d12-9bab-411e-9b02-9643166965f4] Reasoning: This sentence references a court case that discusses the intent of Congress regarding the taxation of distributive shares, providing some interpretive context.
+  [ID: 7769f77d-0dcf-4da4-88fe-e781e6c0edf5] Reasoning: This sentence explains how income from an estate or trust is computed for beneficiaries, including their distributive share, which adds interpretive value.
+  [ID: 69a70598-1936-4c09-93d4-dc5a8741cb15] Reasoning: This sentence emphasizes the requirement for partners to report their distributive share of income, but it does not provide additional interpretive context.
+  [ID: b16d99c8-cf1b-49fd-9986-22c577fe00dd] Reasoning: This sentence discusses net earnings from self-employment and includes the distributive share of income, but lacks deeper analysis or context.
+  [ID: 6c90c0b7-04fa-4210-8e90-97b36876d993] Reasoning: This sentence states a specific amount of distributive share income for a partnership, but does not provide interpretive context.
+  [ID: 26301880-52e6-4d86-9327-4bd22372f74c] Reasoning: This sentence discusses the relationship between capital transactions and distributive shares of income, but lacks clarity and depth in its explanation.
+  [ID: 037071a3-9a93-45b6-8ddc-3c5907ee0539] Reasoning: This sentence is a repeat of a previous one regarding the computation of net income for beneficiaries, providing no new information.
+  [ID: 3099ae01-42e5-4e3d-9954-02d958a15f83] Reasoning: This sentence discusses the tax implications of a partnership's net income, but does not provide additional interpretive context.
+  [ID: 635b056e-e5a3-489b-9dd1-1d20cf6b1853] Reasoning: This sentence discusses the Commissioner’s decision regarding trusts and their distributive shares, but lacks deeper analysis.
+  [ID: 2c107c79-af8f-4872-9d13-9059953a32d7] Reasoning: This sentence addresses the determination of a taxpayer's distributive share of income for specific years, but does not provide further interpretive context.
+  [ID: 64e71502-2b9d-4995-b1eb-c943c661d0bb] Reasoning: This sentence states a provision regarding the net income of partners, but it is a direct reference to statutory text without additional context.
+  [ID: dd3a6353-d102-4471-85ed-408c2a69ffbf] Reasoning: This sentence discusses deductions for partnerships and the adjustment of distributive shares, but lacks deeper interpretive context.
+  [ID: 60589538-c8c9-4be9-a893-7de34764a6e5] Reasoning: This sentence discusses the tax implications of an assignment of a partnership interest, providing some context for the distributive share of income.
+  [ID: 4c8f420b-a3cb-4346-980e-efe690783afd] Reasoning: This sentence discusses the receipt of a distributive share of income, but does not provide additional interpretive context.
+  [ID: 132f3068-272c-4750-9af7-f89de441362c] Reasoning: This sentence addresses whether a decedent's distributive share should be included in their income, but lacks deeper analysis.
+  [ID: c4c93cf4-f18c-42ae-8198-da39995bec5b] Reasoning: This sentence discusses the reporting of distributive shares of income on partnership returns, but does not provide additional interpretive context.
+  [ID: cc920b32-1e50-480b-a352-f9e2086f9fc6] Reasoning: This sentence discusses the return of distributive shares from royalties, but lacks deeper interpretive context.
+  [ID: 2aebe477-3a2c-4dc5-aa8d-fc27d817b984] Reasoning: This sentence discusses the fiduciary's tax obligations and the computation of net income for beneficiaries, providing some context for distributive shares.
+  [ID: 9bd1b64e-86e9-4282-ae1a-b414b81c1308] Reasoning: This sentence discusses a specific case involving a loss and a distributive share of income, but does not provide additional interpretive context.
+  [ID: 7e2725c4-878a-4c02-b000-41988f1b6e6d] Reasoning: This sentence is a repeat of a previous one regarding the computation of net income for beneficiaries, providing no new information.
+  [ID: 82d63172-ca9e-4389-b491-e221585a9ced] Reasoning: This sentence discusses the tax liability of beneficiaries on their distributive shares of income, providing some context for its application.
+  [ID: 3c9123f0-5948-420e-8234-e98ffde2bc24] Reasoning: This sentence discusses the computation of partnership income and the determination of the partners' distributive share, but it primarily reiterates the procedural aspects without providing new interpretive insights.
+  [ID: e1e5800a-fee7-40b0-9b90-b2e46171c1cb] Reasoning: This sentence describes the respondent's actions regarding the partners' distributive shares but does not add any interpretive context or application beyond the statutory text.
+  [ID: 9ce0c0e6-fd81-42e3-87f1-ec321842f7e6] Reasoning: This sentence states that a joint venture must file an information return and report distributive shares, but it does not provide any new interpretive context or application.
+  [ID: 0465c35e-da55-4ee5-956e-f286464a84c3] Reasoning: This sentence reiterates that members of a joint venture are chargeable with their distributive shares, which is a restatement of the statutory principle without new insights.
+  [ID: 4d87da1f-3d8f-413d-bff3-bfab51640ae4] Reasoning: This sentence discusses a transaction related to a partnership's distributive share but does not provide new interpretive context or application beyond the statutory text.
+  [ID: 2f8006c7-e07c-4be1-b3b7-f9c011a9cd5a] Reasoning: This sentence mentions the decedent's claim to a distributive share of income from a trust fund but lacks interpretive depth or application.
+  [ID: 9999452d-4473-428b-8d48-1e55664ffee7] Reasoning: This sentence describes how amounts were treated for tax purposes but does not provide new interpretive insights regarding distributive shares.
+  [ID: e3ddf632-f570-44c5-88d1-b17c66888ed7] Reasoning: This sentence reports a specific amount as a distributive share but does not add any interpretive context or application.
+  [ID: 360c46e2-aaf2-4d2d-b0b4-397eb268b675] Reasoning: This sentence references Section 704 regarding the determination of a partner's distributive share but does not provide new insights or applications.
+  [ID: a79b915e-a440-4204-80b5-c0ed214259d3] Reasoning: This sentence raises a specific issue regarding supervisory fees and their inclusion in a distributive share but lacks broader interpretive context.
+  [ID: c550ee5b-3b46-4ce7-8048-7473b9468da1] Reasoning: This sentence questions whether a specific amount is part of a distributive share but does not provide new interpretive insights.
+  [ID: 054ddd76-5a4d-488e-ba60-0a426c217ed4] Reasoning: This sentence discusses the taxability of an item as a distributive share but does not provide new interpretive context.
+  [ID: 2874c46f-1b5b-46f6-9b61-da78ce630406] Reasoning: This sentence states that the parties settled an issue regarding a distributive share but does not provide new interpretive insights.
+  [ID: 696dda50-9fa5-47da-aaa4-8c3a560f1778] Reasoning: This sentence explains how a beneficiary's distributive share is determined but does not provide new interpretive context or application.
+  [ID: 2aa0d548-8855-40bd-87b0-6b9b35fec8fb] Reasoning: This sentence discusses the allocation of a distributive share but does not provide new interpretive insights or applications.
+  [ID: 8ccc10cd-0b41-4d60-a2b9-0e5f09df8ec6] Reasoning: This sentence mentions a partnership return showing each partner's distributive share but does not provide new interpretive context.
+  [ID: 506555fe-8afb-45a2-b6d0-989735b59021] Reasoning: This sentence discusses the taxation of a distributive share but does not provide new interpretive insights or applications.
+  [ID: d2cc07ae-6fc0-4923-971f-cafe3ce53424] Reasoning: This sentence states that petitioners must report their distributive shares but does not provide new interpretive context or application.
+  [ID: 57d2544b-3bbd-4962-a061-1b17fc0a82eb] Reasoning: This sentence includes a definition related to foreign mineral income and distributive shares but does not provide new interpretive insights.
+  [ID: dcc53900-c23c-44d7-97a9-39c854b44703] Reasoning: This sentence is a repeat of the previous one, providing no new information or context.
+  [ID: a9dfb560-2d13-404c-ba73-caba62c08359] Reasoning: This sentence discusses gains attributable to a partnership but does not provide new interpretive insights regarding distributive shares.
+  [ID: 1600d16f-dbfc-4b85-bf40-77e01fdb4eea] Reasoning: This sentence raises a question about the taxability of a distributive share but does not provide new interpretive context or application.
+  [ID: d5cbbc67-38b5-47ad-9a59-8e89d0a04d77] Reasoning: This sentence discusses the addition of a distributive share to the amount returned by executors but does not provide new interpretive insights.
+  [ID: 9eb31038-342c-4636-9f2c-370e91acf118] Reasoning: This sentence states that the petitioners did not prove the respondent's method of prorating a distributive share is incorrect, but it lacks interpretive depth.
+  [ID: 8642ab85-18b9-4b42-8d34-9eaed7745482] Reasoning: This sentence simply states that a specific amount was reported as a distributive share, providing no new interpretive context.
+  [ID: 24e7b58c-dd54-4656-ba42-0f4ebb3c7ee7] Reasoning: This sentence states that testamentary trust beneficiaries were not liable to income tax on their distributive shares, but it does not provide any new interpretive context or application of the law.
+  [ID: 3af7f195-b2d3-4218-9de1-48d7d162f00c] Reasoning: This sentence discusses the tax implications based on the source of income, indicating that if income is primarily from capital interests, the petitioner is only taxable on his distributive share. It provides some context but lacks depth in legal interpretation.
+  [ID: 153fe360-6179-4144-b34e-b2428062a168] Reasoning: This sentence explains that a partner's distributive share of income is included in their income computation, but it does not add significant interpretive value beyond the statute itself.
+  [ID: 89d1ddad-caf5-45d1-929a-afe2b0709296] Reasoning: This sentence references a case where the United States claimed an equitable lien for taxes on undistributed distributive shares, providing a specific application of the law in a legal context.
+  [ID: 5d5cb5e7-55ed-4226-abf4-adfe505d541e] Reasoning: This sentence discusses the inclusion of a decedent's distributive share in their individual income, providing a specific context for tax implications related to timing and death.
+  [ID: 750823aa-19cf-42b9-a93b-8b0637bf4f0] Reasoning: This sentence discusses the reallocation of a wife's distributive share and its implications for tax assessments, providing context for how distributive shares can affect tax liabilities.
+  [ID: f039e99b-53e1-4eba-8d0b-4c7fe6b71cc2] Reasoning: This sentence outlines how income from an estate is computed for beneficiaries, providing a detailed explanation of tax implications for distributive shares.
+  [ID: f17af7f9-af43-4ec6-9721-bd184227e472] Reasoning: This sentence discusses the reallocation of distributive shares from specific companies, providing context for tax assessments and implications for partners.
+  [ID: 80685113-e59e-4534-b23c-fe4b796073aa] Reasoning: This sentence raises a question about the nature of income as distributive shares, indicating a legal ambiguity that could affect tax liability.
+  [ID: 3b96b99d-cf83-419c-a33b-01c80dc7f835] Reasoning: This sentence denies a petitioner's claim regarding the increase of their distributive share, but it does not provide significant interpretive context.
+  [ID: 5a0eccd3-282b-42a6-bb1c-cb59ca83ea69] Reasoning: This sentence repeats the earlier explanation about computing net income for beneficiaries without adding new interpretive value.
+  [ID: a926ae13-59dd-4863-ab0b-9373d6e324d9] Reasoning: This sentence discusses the inclusion of a partner's distributive share in income, but it does not provide new insights beyond the statutory text.
+  [ID: 560c35c6-7741-472a-acf8-c794e6bc7e9f] Reasoning: This sentence states that beneficiaries are taxable on their distributive shares, which is a direct restatement of the statute without additional context.
+  [ID: d0b795d4-23f1-4eb2-83b6-e28d4fd8e943] Reasoning: This sentence repeats the earlier explanation about computing net income for beneficiaries without adding new interpretive value.
+  [ID: eb5d807e-eb35-4c84-8ade-b88da09abda2] Reasoning: This sentence discusses whether a distributive share is separate property or community income, indicating a legal question that could affect tax treatment.
+  [ID: a4a0d2f2-8346-4c09-9ce2-31c4f1f1d289] Reasoning: This sentence provides a specific amount received as a distributive share, which adds context to the application of the law but lacks broader interpretive depth.
+  [ID: 87b02c7a-adcb-46a5-a7bf-01a94abe95ed] Reasoning: This sentence discusses tax implications of spreading income distribution over years, providing a practical application of how distributive shares can affect tax brackets.
+  [ID: 349e7a9f-bfac-488b-9d59-b4afa8e35033] Reasoning: This sentence outlines adjustments made to tax returns based on distributive shares, providing context for how tax assessments can change based on income reporting.
+  [ID: e56a18d8-8171-449f-9b99-c17823e5a7f3] Reasoning: This sentence discusses the role of a manager in distributing income shares, providing context for the practical application of distributive shares in a business setting.
+  [ID: 3d6b0cc9-28a5-4be2-b3ba-66435478ce25] Reasoning: This sentence indicates that distributions to nonresident aliens are taxable, providing a specific application of the law regarding distributive shares.
+  [ID: f877658a-2197-4c0d-8ec6-f40b3016814a] Reasoning: This sentence states that individuals reported their distributive shares on their returns, but it does not provide significant interpretive context.
+  [ID: 745bc3bc-9791-49f6-8796-5e70cf512b30] Reasoning: This sentence discusses adjustments made to tax returns based on distributive shares, providing context for how tax assessments can change based on income reporting.
+  [ID: 78f91d76-b8c9-441f-bcee-4d4ecba1c6e3] Reasoning: This sentence repeats the earlier explanation about computing net income for beneficiaries without adding new interpretive value.
+  [ID: c317694e-358a-4bbe-99d8-ddd60556c84a] Reasoning: This sentence states that a life tenant is entitled to a specific share of income, but it does not provide significant interpretive context.
+  [ID: e3dc3f60-a0db-4f33-8a00-66ef581a5528] Reasoning: This sentence states that a payment made by a trustee was the distributive share to which a life tenant was entitled, but it does not provide significant interpretive context.
 Method: probabilities | Term: distributive share of the income
-NDCG@10: 0.5140667157787429
-NDCG@20: 0.5511978354567003
-NDCG@40: 0.5880533328363391
-NDCG@100: 0.7865963160594556
+NDCG@10: 0.6177699477002347
+NDCG@20: 0.6145813255397471
+NDCG@40: 0.6279914253488506
+NDCG@100: 0.7786488311482611
 
 ----------------------------------------
 STDERR:
@@ -133,10 +219,11 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/7 [00:00<?, ?batch/s]
-GPT batches:  14%|█▍        | 1/7 [00:18<01:48, 18.10s/batch]
-GPT batches:  29%|██▊       | 2/7 [00:20<00:43,  8.67s/batch]
-GPT batches:  43%|████▎     | 3/7 [00:22<00:23,  5.92s/batch]
-GPT batches:  57%|█████▋    | 4/7 [00:23<00:11,  3.72s/batch]
-GPT batches:  71%|███████▏  | 5/7 [00:26<00:07,  3.73s/batch]
-GPT batches:  86%|████████▌ | 6/7 [00:27<00:02,  2.64s/batch]
-GPT batches: 100%|██████████| 7/7 [00:27<00:00,  3.92s/batch]
+GPT batches:  14%|█▍        | 1/7 [00:35<03:31, 35.25s/batch]
+GPT batches:  29%|██▊       | 2/7 [00:41<01:30, 18.08s/batch]
+GPT batches:  43%|████▎     | 3/7 [00:44<00:44, 11.18s/batch]
+GPT batches:  57%|█████▋    | 4/7 [00:45<00:22,  7.41s/batch]
+GPT batches:  71%|███████▏  | 5/7 [00:46<00:10,  5.04s/batch]
+GPT batches:  86%|████████▌ | 6/7 [00:46<00:03,  3.36s/batch]
+GPT batches: 100%|██████████| 7/7 [00:47<00:00,  2.63s/batch]
+GPT batches: 100%|██████████| 7/7 [00:47<00:00,  6.85s/batch]

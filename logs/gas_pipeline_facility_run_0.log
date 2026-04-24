@@ -1,131 +1,118 @@
 Command: /opt/anaconda3/bin/python rank.py --term gas pipeline facility --type probabilities --sentences sources/gas_pipeline_facility/gas_pipeline_facility-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: c848b25a-a8f8-47f0-8a9c-56e2e80caabc] Reasoning: This sentence discusses a corporate restructuring involving gas pipeline facilities but does not provide any interpretive context or application of the term 'gas pipeline facility'.
+  [ID: 77e00c78-6bcf-45ae-aa02-90a5d654998d] Reasoning: This sentence mentions the requirement for a certificate of public convenience and necessity for constructing interstate natural gas pipeline facilities, which adds context to the regulatory framework but lacks depth in explaining the term itself.
+  [ID: 8820e4e3-c4a0-4337-808a-960429ffef90] Reasoning: This sentence describes a specific application for certificate authorization under the Natural Gas Act for constructing interstate natural gas pipeline facilities, providing relevant context for understanding the term's application.
+  [ID: 240bdcb3-25b0-4f91-8831-089a454e7f2c] Reasoning: This sentence explains the prohibition on constructing certain natural gas pipeline facilities without a certificate, providing critical interpretive guidance on the regulatory requirements surrounding the term.
+  [ID: 1aefe0f5-6dc5-4615-bba5-a9b0c67bc755] Reasoning: This sentence discusses a rate increase related to the expansion of natural gas pipeline facilities, which provides context but does not significantly enhance understanding of the term itself.
+  [ID: a3fc28d3-beb7-40f6-8f92-8e1e1bd02060] Reasoning: This sentence states that FERC has jurisdiction over the construction and regulation of natural gas pipeline facilities, which is relevant but lacks specific interpretive depth regarding the term.
+  [ID: ea7ffd6e-d488-407d-a606-9a3ec1582b14] Reasoning: This sentence is a direct quote of the statute regarding the prohibition of construction without a certificate, providing no new interpretive value.
+  [ID: 8b305190-d594-4ecc-95a0-47083ee49fd9] Reasoning: This sentence discusses a petition for review related to the cost of a gas pipeline facility, which is relevant but does not provide significant interpretive context.
+  [ID: 784e437e-e6ac-4761-9bcc-c451eca80424] Reasoning: This sentence describes a lawsuit to condemn property for constructing a natural gas pipeline facility, which provides context but lacks depth in explaining the term.
+  [ID: 552cba85-dbfa-4501-ba40-bdb1f01a3147] Reasoning: This sentence states that a tank is an interstate natural gas pipeline facility subject to regulation, which adds some context but does not significantly enhance understanding of the term.
+  [ID: 74d4c64c-09f4-402f-a4fb-e6d5ae398ea3] Reasoning: This sentence discusses the review process for energy facility construction, including natural gas pipelines, but does not provide specific interpretive guidance on the term 'gas pipeline facility'.
+  [ID: 7d3cfda1-3fbd-454c-8080-83012e294fa1] Reasoning: This sentence mentions easements for the expansion of gas pipeline facilities but does not provide significant interpretive context or application.
+  [ID: fb522b30-d630-449b-8d41-16c0a4cfb136] Reasoning: This sentence is a definition of 'interstate gas pipeline facility', which is redundant and provides no new interpretive value.
+  [ID: 7818581e-36a8-4ddd-943c-d5894bc17913] Reasoning: This sentence provides a definition of 'intrastate gas pipeline facility', which is redundant and does not add interpretive value regarding the term 'gas pipeline facility'.
+  [ID: 8e6768b9-9781-49db-9a71-96914e559092] Reasoning: This sentence discusses minimum operating standards for liquefied natural gas pipeline facilities but does not provide specific interpretive context for 'gas pipeline facility'.
+  [ID: 4da3ac0b-84b8-4fad-9206-7286c0d89ed3] Reasoning: This sentence lists various statutes related to safety and regulation but does not provide specific interpretive context for 'gas pipeline facility'.
+  [ID: dbaae3ee-d55d-4a94-8ba7-1bb454c367a6] Reasoning: This sentence discusses the requirement for gas pipeline facilities to meet safety standards, which is relevant but does not provide deeper interpretive context or application of the term 'gas pipeline facility'.
+  [ID: 0bf8f54e-0c05-476d-b549-66ee23f2f7d3] Reasoning: This sentence describes a specific agreement involving gas pipeline facilities but does not elaborate on the legal implications or context of the term 'gas pipeline facility'.
+  [ID: 261f2fa2-7dc0-4f71-b46b-7c60e41667a4] Reasoning: This sentence provides a specific example of a request to construct gas pipeline facilities, illustrating practical application but lacks broader interpretive context.
+  [ID: cd347bfe-b2b9-4dbf-a42a-8c999cbde841] Reasoning: This sentence discusses the authority of the Department of Transportation regarding safety standards for pipeline facilities, which is relevant but does not add significant interpretive depth.
+  [ID: 57b9513c-aac0-49be-8fc7-154a34479138] Reasoning: This sentence addresses federal jurisdiction over natural gas pipeline facilities but does not clarify the term 'gas pipeline facility' itself.
+  [ID: 2a2146f9-93e7-45df-9dd3-00beb4188c70] Reasoning: This sentence explains FERC's jurisdiction over natural gas pipeline facilities, providing context for regulatory oversight but lacking specific interpretive depth.
+  [ID: 22c3bc9b-4d35-4fa5-a774-61e87030c9e9] Reasoning: This sentence discusses the implications of ejecting a defendant from property related to a gas pipeline facility, providing context but not a clear interpretation of the term.
+  [ID: 07305440-fc12-4ea9-9edc-d460ded5d8af] Reasoning: This sentence mentions a petition for review regarding a gas pipeline facility's cost recording, which is relevant but does not provide deeper interpretive context.
+  [ID: 02123d0c-4624-4ec8-a782-e370d2923c7d] Reasoning: This sentence outlines the prohibition of constructing certain gas pipeline facilities without a certificate, providing important regulatory context but not a direct interpretation of the term.
+  [ID: 8fc5d309-f57c-4b18-a33d-eb5f285612eb] Reasoning: This sentence discusses applications for certificate authorization to construct interstate natural gas pipeline facilities, relevant but lacking deeper interpretive context.
+  [ID: 36d99815-fdf2-4ba1-9f71-c85072eb26f0] Reasoning: This sentence mentions a rate increase related to natural gas pipeline facilities, which is relevant but does not provide significant interpretive depth.
+  [ID: b8004c9e-f927-4ec6-92a5-5c59bf8bfec1] Reasoning: This sentence is a direct quote of the statute regarding the prohibition of constructing certain gas pipeline facilities, providing no new interpretive value.
+  [ID: 73ceba5c-600c-45f9-88ce-877de770035c] Reasoning: This sentence defines 'intrastate gas pipeline facility', which is relevant but does not provide a broader interpretive context for 'gas pipeline facility'.
+  [ID: 99d5861e-0221-4a3c-b5af-6c53910a881c] Reasoning: This sentence is a direct quote of the statute defining 'gas pipeline facility', providing no new interpretive value.
+  [ID: ebebe21c-82e0-4a75-b93c-d0fbb62862a3] Reasoning: This sentence discusses the right to access property for the construction and operation of natural gas pipeline facilities, which is relevant but lacks deeper interpretive context.
+  [ID: 8ca56506-5446-4dcf-80c0-50325845037a] Reasoning: This sentence discusses applications for certificate authorization under the NGA, relevant but lacking deeper interpretive context.
+  [ID: 3b991489-9a56-4f0b-b3db-9eb53b385d41] Reasoning: This sentence discusses a proposal related to abandoned investments in gas pipeline facilities, which is relevant but does not provide significant interpretive depth.
+  [ID: 68098d06-9d50-45d3-ae77-4ed6fb498015] Reasoning: This sentence discusses comprehensive standards for natural gas pipeline facilities, relevant but lacking deeper interpretive context.
+  [ID: dccad414-5611-4d3e-92c6-cdf2771ac34c] Reasoning: This sentence is a repeat of a previous argument regarding abandoned investments in gas pipeline facilities, providing no new interpretive value.
+  [ID: 7159a5f8-8c65-4180-8f12-92f7fc6ddd58] Reasoning: This sentence critiques the circular definition of 'pipeline facility' in the NGPSA, providing some interpretive insight into statutory language but not a clear application of 'gas pipeline facility'.
+  [ID: cd8f287b-27d1-4cbd-b2c7-2d544d2fe264] Reasoning: This sentence discusses a court's ruling on gas pipeline facilities and their exemption from state safety standards, providing relevant context but lacking deeper interpretive analysis.
+  [ID: f6eb1eef-b7df-474c-9445-085c2ea7a915] Reasoning: This sentence describes a specific case involving the construction of an interstate natural gas pipeline facility, providing practical context but lacking broader interpretive depth.
+  [ID: a8514074-4f78-4542-895b-2807869377bd] Reasoning: This sentence discusses the federal minimum safety standards for natural gas pipeline facilities, relevant but lacking deeper interpretive context.
+  [ID: 82ac0367-5c36-46a6-b34e-77973af8f71a] Reasoning: This sentence discusses a case involving local zoning approval for a natural gas pipeline facility, providing relevant context but lacking deeper interpretive analysis.
+  [ID: 5b1ea189-432b-4e8c-9126-197f5e3bf4fa] Reasoning: This sentence discusses penalties for damaging interstate gas pipeline facilities, which is relevant but does not provide significant interpretive depth regarding the term itself.
+  [ID: a471608d-da60-4e93-a8d1-fe8d34783a1b] Reasoning: Describes the authorization for constructing and operating natural gas pipeline facilities, providing context for the application of the term in a specific case.
+  [ID: 7bcd1c7b-9613-477b-a1c8-d09810c94a6e] Reasoning: Details an application for a certificate to construct and operate natural gas pipeline facilities, illustrating the procedural context in which the term is used.
+  [ID: 3f36c574-fd16-4eab-8a8d-0f933894c7a7] Reasoning: Mentions state action over interstate natural gas pipeline facilities under federal law, but lacks specific application or context regarding the term.
+  [ID: 4dd4bd80-0bca-4a4b-9d10-8b0d3788d622] Reasoning: States that the PSA preempts safety standards for natural gas pipeline facilities, but does not elaborate on the implications or applications of this preemption.
+  [ID: bd21236b-ee94-40a7-b65b-5748b76a5e3d] Reasoning: Identifies a company involved in installing and operating natural gas pipeline facilities, but does not provide further context or application.
+  [ID: a470ab41-edd3-426b-83e4-431a7019f22b] Reasoning: Describes CIG as an interstate natural gas pipeline company, providing context for the term but lacking deeper interpretive value.
+  [ID: 73342f79-03ae-4da9-acf3-1184cae2c2b3] Reasoning: Discusses certification requirements for gas pipeline facilities under the PSA, providing some interpretive context regarding compliance.
+  [ID: 5cfa104d-c142-4798-ac94-c3675d5f1043] Reasoning: Similar to the previous sentence, it reiterates certification requirements under the PSA without adding new interpretive context.
+  [ID: 14e12390-e41a-409f-9629-7cbbe41a3e7f] Reasoning: Directly quotes the definition of 'pipeline facility' from the statute, providing no new interpretive value.
+  [ID: a2b8a0e2-17cb-42c0-8e6c-d59c05c31ae6] Reasoning: Reiterates the definition of 'gas pipeline facility' from the statute, offering no new insights or applications.
+  [ID: b88c1a49-cc43-4fc3-887c-82bd45c77de4] Reasoning: Provides a definition of 'interstate gas pipeline facility' but does not elaborate on its application or implications.
+  [ID: c7161214-b848-4b8b-9eb9-f724a58de645] Reasoning: Applies the definition of an interstate gas pipeline facility to a specific case, clarifying its jurisdictional status.
+  [ID: 03a65c15-b484-4e34-8755-d0e5b618de3c] Reasoning: Reiterates the definition of 'interstate gas pipeline facility' from the PSA, providing no new interpretive value.
+  [ID: 7f901f1f-11ce-4321-a3db-64000ab1ec11] Reasoning: States that an underground storage field qualifies as an interstate gas pipeline facility, providing a specific application of the term.
+  [ID: 79826dd0-951a-4e5c-94e8-15a39de060d5] Reasoning: Mentions the preemption of state safety standards for an interstate natural gas pipeline facility, but lacks deeper context or implications.
+  [ID: 733893cc-1487-43bd-a495-848f58ea361a] Reasoning: Describes the history of Florida Gas Transmission Company and its operations, but does not provide specific interpretive value regarding the term.
+  [ID: 60876847-5998-4cb7-989f-10b4d04fbf13] Reasoning: Discusses the separation of local distribution from interstate gas pipeline facilities, providing context but lacking deeper interpretive insights.
+  [ID: cbdf566e-9e5a-41d2-b6d2-d58a53649025] Reasoning: Mentions a legal argument related to interstate commerce and natural gas pipeline facilities, but lacks specific application or context.
+  [ID: eb7767b8-195a-414e-85d1-4673df7a1947] Reasoning: Discusses court rulings on state regulation of gas pipeline facilities, providing some interpretive context regarding federal preemption.
+  [ID: 47c3c751-8322-4b29-8024-da47529b54cf] Reasoning: Cites a statute regarding liquefied natural gas pipeline facilities, but does not provide new interpretive insights related to the phrase of interest.
+  [ID: 04d088e6-b37d-4de1-bbd1-0088828181a3] Reasoning: Mentions the requirement for a certificate of public convenience and necessity for interstate natural gas pipeline facilities, but lacks deeper context.
+  [ID: c2437091-b512-4294-bc8f-250936f22128] Reasoning: Discusses safety program requirements for gas pipeline facility operators, providing some context but lacking deeper interpretive insights.
+  [ID: d5fce3ad-7105-44db-9a7d-140a5a970dd0] Reasoning: Mentions standards covering all gas pipeline facilities, but does not provide specific interpretive value regarding the phrase of interest.
+  [ID: 44e16601-e571-47af-8222-7f6d247dbaaf] Reasoning: Contains a long list of unrelated statutes, providing no relevant context or application regarding gas pipeline facilities.
+  [ID: 30b86fb2-ed15-4c80-8bbe-1f98f2389ab9] Reasoning: Discusses a plaintiff's standing in relation to a gas pipeline facility, but does not provide significant interpretive value regarding the term.
 Method: probabilities | Term: gas pipeline facility
-NDCG@10: 0.6417681814929596
-NDCG@20: 0.7028280664164308
-NDCG@40: 0.7602526520530217
-NDCG@100: 0.8766131988021999
+NDCG@10: 0.8270158456966725
+NDCG@20: 0.8057078030984953
+NDCG@40: 0.8229647822880811
+NDCG@100: 0.9241265945195045
 
 ----------------------------------------
 STDERR:
@@ -133,7 +120,7 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/3 [00:00<?, ?batch/s]
-GPT batches:  33%|███▎      | 1/3 [00:17<00:35, 17.76s/batch]
-GPT batches:  67%|██████▋   | 2/3 [00:23<00:10, 10.56s/batch]
-GPT batches: 100%|██████████| 3/3 [01:03<00:00, 24.03s/batch]
-GPT batches: 100%|██████████| 3/3 [01:03<00:00, 21.11s/batch]
+GPT batches:  33%|███▎      | 1/3 [00:29<00:58, 29.13s/batch]
+GPT batches:  67%|██████▋   | 2/3 [00:43<00:20, 20.37s/batch]
+GPT batches: 100%|██████████| 3/3 [01:12<00:00, 24.32s/batch]
+GPT batches: 100%|██████████| 3/3 [01:12<00:00, 24.13s/batch]

@@ -10,19 +10,36 @@ import pandas as pd
 import os
 from dotenv import load_dotenv
 import random
-from sentence_transformers import SentenceTransformer
 from sklearn.preprocessing import normalize
-from sklearn.metrics import ndcg_score
 from tqdm import tqdm
 import re
 import wandb
 import difflib
+
+# Lazy imports for performance
+_sentence_transformer_model = None
+
+def get_sentence_transformer():
+    global _sentence_transformer_model
+    if _sentence_transformer_model is None:
+        from sentence_transformers import SentenceTransformer
+        _sentence_transformer_model = SentenceTransformer("all-MiniLM-L6-v2")
+    return _sentence_transformer_model
+
+def get_ndcg_score():
+    from sklearn.metrics import ndcg_score
+    return ndcg_score
 
 load_dotenv("../.env")
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 wandb_api_key = os.getenv("WANDB_API_KEY")
 if wandb_api_key:
     wandb.login(key=wandb_api_key)
+
+groq_api_key = os.getenv("GROQ_API_KEY")
+groq_client = None
+if groq_api_key:
+    groq_client = AsyncOpenAI(api_key=groq_api_key, base_url="https://api.groq.com/openai/v1")
 LABEL_MAP = {
     "no value": 0,
     "potential value": 1,
@@ -104,14 +121,7 @@ def cosine_sim(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     b = normalize(b)
     return a @ b.T
 
-def extract_json_array(text: str):
-    """
-    Extract the first valid JSON array from text.
-    """
-    match = re.search(r"\[\s*{.*?}\s*\]", text, re.DOTALL)
-    if not match:
-        raise ValueError("No JSON array found in GPT output")
-    return json.loads(match.group(0))
+# Using robust version below at line 736
 
 
 def build_records(sent_json: Dict[str, Any]) -> pd.DataFrame:
@@ -130,7 +140,7 @@ def build_records(sent_json: Dict[str, Any]) -> pd.DataFrame:
         })
     return pd.DataFrame(rows)
 
-BATCH_SIZE = 25
+BATCH_SIZE = 5
 async def _gpt_label_single_batch(df_batch: pd.DataFrame, eval_type: str, term: str, system_prompt: str, raw_statute: str) -> pd.DataFrame:
     
     records = [
@@ -224,7 +234,9 @@ async def generate_explanation(text: str, label: str, term: str, raw_statute: st
     )
     return response.choices[0].message.content
 
-async def _gpt_probabilities_single_batch(df_batch: pd.DataFrame, term: str, system_prompt: str, raw_statute: str) -> pd.DataFrame:
+async def _gpt_probabilities_single_batch(df_batch: pd.DataFrame, term: str, system_prompt: str, raw_statute: str, model: str = "gpt-4o-mini") -> pd.DataFrame:
+    BATCH_SIZE_INTERNAL = 5  # Ensure we don't exceed local batch logic
+
     records = [
         {"sentence_id": str(row["sentence_id"]), "text": str(row["text"])}
         for _, row in df_batch.iterrows()
@@ -235,65 +247,140 @@ async def _gpt_probabilities_single_batch(df_batch: pd.DataFrame, term: str, sys
         "sentences": records,
     }
     
-    prob_instructions = (
-        "\n\nFor each sentence, return a probability distribution over the four classes: "
-        "'no value', 'potential value', 'certain value', and 'high value'. "
-        "The probabilities must sum to 1.0 for each sentence.\n"
-        "Return strictly as a JSON array of objects:\n"
-        '[{"sentence_id": "...", "probs": {"no value": 0.1, "potential value": 0.2, "certain value": 0.3, "high value": 0.4}}, ...]'
-    )
-
-    response = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        temperature=0.0,
-        messages=[
-            {"role": "system", "content": system_prompt + prob_instructions},
-            {"role": "user", "content": json.dumps(user_content)},
-        ]
-    )
-
-    output_text = response.choices[0].message.content
+    # Global cleanup of labeling terminology to break LLM persistence
+    cleaned_prompt = system_prompt.replace('"label"', '"probs"')
+    cleaned_prompt = cleaned_prompt.replace(' label ', ' score distribution ')
+    cleaned_prompt = cleaned_prompt.replace(' labeled ', ' scored ')
+    
+    # Determine which client to use
+    active_client = client
+    if groq_client and ("gpt-oss" in model or "llama" in model.lower() or "mixtral" in model.lower() or "qwen" in model.lower()):
+        active_client = groq_client
+        
     try:
-        gpt_data = extract_json_array(output_text)
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                response = await active_client.chat.completions.create(
+                    model=model,
+                    temperature=0.0,
+                    max_tokens=8192,
+                    messages=[
+                        {"role": "system", "content": cleaned_prompt + "\n\nIMPORTANT: Return ONLY the JSON array. Do NOT use <think> tags. Keep your 'reasoning' field under 15 words to ensure the entire batch is processed without truncation."},
+                        {"role": "user", "content": f"Phrase: {term}\nStatute: {raw_statute}\nSentences to evaluate: {json.dumps(records)}"}
+                    ]
+                )
+                output_text = response.choices[0].message.content
+                
+                # Try to parse the JSON immediately within the retry loop
+                try:
+                    gpt_data = extract_json_array(output_text)
+                    # If gpt_data is a dict (wrapped), try to find the list inside
+                    if isinstance(gpt_data, dict):
+                        for key in ["results", "output", "ranking", "predictions", "data"]:
+                            if key in gpt_data and isinstance(gpt_data[key], list):
+                                gpt_data = gpt_data[key]
+                                break
+                        if isinstance(gpt_data, dict): # Still a dict?
+                            for v in gpt_data.values():
+                                if isinstance(v, list):
+                                    gpt_data = v
+                                    break
+                    break # Successfully parsed!
+                except Exception as parse_error:
+                    if attempt < max_retries - 1:
+                        print(f"Parse error for {term}, retrying... ({str(parse_error)[:50]})")
+                        await asyncio.sleep(2)
+                        continue
+                    else:
+                        raise parse_error
+
+            except Exception as e:
+                error_str = str(e).lower()
+                if ("rate_limit_exceeded" in error_str or "json_validate_failed" in error_str) and attempt < max_retries - 1:
+                    wait_time = 3.0  # Slightly longer default wait
+                    # Try to extract wait time from error message if possible
+                    match = re.search(r"try again in ([\d.]+)s", str(e))
+                    if match:
+                        wait_time = float(match.group(1)) + 1.0
+                    elif "ms" in str(e):
+                        match_ms = re.search(r"try again in ([\d.]+)ms", str(e))
+                        if match_ms:
+                            wait_time = (float(match_ms.group(1)) / 1000.0) + 0.5
+                    
+                    print(f"Transient error ({'RateLimit' if 'rate_limit' in error_str else 'JSON'}) for {term}, retrying in {wait_time:.2f}s... (Attempt {attempt+1}/{max_retries})")
+                    await asyncio.sleep(wait_time)
+                else:
+                    print(f"FAILED on {term}: {str(e)}")
+                    raise e
+
+        # Proceed to process gpt_data (it's guaranteed to be safely parsed if we reached here)
         results = []
         for item in gpt_data:
-            sid = str(item["sentence_id"])
-            probs = item["probs"]
-            # EV calculation: i * P(class=i)
-            ev = (
-                probs.get("no value", 0.0) * 0 +
-                probs.get("potential value", 0.0) * 1 +
-                probs.get("certain value", 0.0) * 2 +
-                probs.get("high value", 0.0) * 3
-            )
-            results.append({
-                "sentence_id": sid,
-                "gpt_label_score": ev,
-                "gpt_label_str": "distribution"
-            })
+            try:
+                sid = str(item.get("sentence_id", item.get("id", "")))
+                if not sid:
+                    continue
+                
+                # Find the scoring data (could be 'probs' or 'label')
+                scoring_data = item.get("probs", item.get("label"))
+                
+                if isinstance(scoring_data, dict):
+                    probs = scoring_data
+                elif isinstance(scoring_data, str):
+                    # Map string label to 1.0 probability for that class
+                    label_val = scoring_data.lower()
+                    probs = {k: (1.0 if k == label_val else 0.0) for k in LABEL_MAP.keys()}
+                else:
+                    # Fallback if no scoring data
+                    probs = {"no value": 1.0}
+
+                # EV calculation (Expected Value)
+                # Ensure we handle non-numeric values that might have slipped through
+                def safe_float(v):
+                    try: return float(v)
+                    except: return 0.0
+
+                ev = (
+                    safe_float(probs.get("no value", 0.0)) * 0 +
+                    safe_float(probs.get("potential value", 0.0)) * 1 +
+                    safe_float(probs.get("certain value", 0.0)) * 2 +
+                    safe_float(probs.get("high value", 0.0)) * 3
+                )
+                results.append({
+                    "sentence_id": sid,
+                    "gpt_label_score": ev,
+                    "gpt_label_str": "distribution"
+                })
+            except Exception as item_err:
+                print(f"Skipping malformed sentence item for {term}: {item_err}")
+                continue
         return pd.DataFrame(results)
     except Exception as e:
         print(f"ERROR processing GPT probabilities: {e}")
-        print(f"Response: {output_text}")
-        raise
+        # At this point output_text may or may not be defined depending on where it failed
+        if 'output_text' in locals():
+            print(f"Response: {output_text}")
+        raise e
 
-async def gpt_label_batch(df: pd.DataFrame, eval_type: str, term: str, id_check: bool, raw_statute: str, system_prompt) -> pd.DataFrame:
+async def gpt_label_batch(df: pd.DataFrame, eval_type: str, term: str, id_check: bool, raw_statute: str, system_prompt, verbose: bool = False, model: str = "gpt-4o-mini") -> pd.DataFrame:
+    # Limit total concurrent requests to the API to prevent spamming/rate-limits
+    semaphore = asyncio.Semaphore(3)
+    
+    async def sem_task(sub_df):
+        async with semaphore:
+            if eval_type == "probabilities":
+                return await _gpt_probabilities_single_batch(sub_df, term, system_prompt, raw_statute, model=model)
+            else:
+                return await _gpt_label_single_batch(sub_df, eval_type, term, system_prompt, raw_statute)
+
     tasks = []
     for start in range(0, len(df), BATCH_SIZE):
         sub = df.iloc[start:start + BATCH_SIZE]
-        if eval_type == "probabilities":
-            tasks.append(asyncio.create_task(_gpt_probabilities_single_batch(sub, term, system_prompt, raw_statute)))
-        else:
-            tasks.append(asyncio.create_task(_gpt_label_single_batch(sub, eval_type, term, system_prompt, raw_statute)))
-
-    # Run all batches concurrently
-    batches = []
-    for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="GPT batches", unit="batch"):
-        batch_df = await coro
-        batches.append(batch_df)
-
-    df_gpt = pd.concat(batches, ignore_index=True)
-    return df_gpt
+        tasks.append(asyncio.create_task(sem_task(sub)))
+    
+    results = await asyncio.gather(*tasks)
+    return pd.concat(results, ignore_index=True)
 
 async def grab_sentence(provisions, init_label):
     row_counts = [69,1261,139,79,880,71,27,43,135,172,1581,2374,64,2133,210,421,66,359,87,2217,1538,30,18,154,32,204,70,823,3235,84,25,223,452,179,232,366,1646,616,48,508,3867,221]
@@ -338,9 +425,11 @@ async def grab_sentence(provisions, init_label):
     generated_examples = f"\nPhrase of Interest: {chosen_dataset}\nRaw Statute: {raw_statute}\nSentence: {row['text']}\nAnnotator Label: {label}\nExplanation: {explanation}\n"
     return generated_examples
 
-async def retrieve_system_prompt(term, eval_type, df, raw_statute, id_check, provisions):
+async def retrieve_system_prompt(term, eval_type, df, raw_statute, id_check, provisions, prompt_path_override=None):
     final_rules_path = None
-    if eval_type == "zero_shot" or eval_type == "zero_shot_full" or eval_type == "probabilities":
+    if prompt_path_override:
+        prompt_path = prompt_path_override
+    elif eval_type == "zero_shot" or eval_type == "zero_shot_full" or eval_type == "probabilities":
         prompt_path = "system_prompts/zero_shot.txt"
     elif eval_type == "few_shot":
         prompt_path = "system_prompts/few_shot.txt"  # make sure this exists
@@ -352,6 +441,45 @@ async def retrieve_system_prompt(term, eval_type, df, raw_statute, id_check, pro
 
     with open(prompt_path, "r", encoding="utf-8") as f:
         system_prompt = f.read()
+    
+    if eval_type == "probabilities" and "### MANDATORY OUTPUT FORMAT" not in system_prompt:
+        prob_format = "✅ OUTPUT FORMAT (STRICT) - PROBABILITIES MODE\n\n" \
+                     "Return ONLY a JSON object with a \"results\" key. Each record must include a \"reasoning\" field and a \"probs\" field with probabilities for EACH class:\n\n" \
+                     "{\n" \
+                     " \"results\": [\n" \
+                     "  {\n" \
+                     "    \"sentence_id\": \"...\",\n" \
+                     "    \"reasoning\": \"...\",\n" \
+                     "    \"probs\": {\"no value\": 0.1, \"potential value\": 0.2, \"certain value\": 0.3, \"high value\": 0.4}\n" \
+                     "  }\n" \
+                     " ]\n" \
+                     "}"
+        
+        # Extra cleaning: replace labeling terminology with probability terminology
+        system_prompt = system_prompt.replace("MUST be labeled", "MUST be assigned a probability for")
+        system_prompt = system_prompt.replace("labeled \"no value\"", "assigned a probability for \"no value\"")
+        
+        # Regex patterns for different prompt versions
+        patterns = [
+            r"✅ OUTPUT FORMAT \(STRICT\).*?(?=✅)",
+            r"Return ONLY valid JSON in the following exact format:.*?Return only the JSON array\.?",
+            r"Assign exactly ONE label per sentence from:.*?\[.*?\]",
+            r"Assign exactly ONE label per sentence from:.*?{.*?}",
+            r"Assign exactly ONE label per sentence from:.*?\n",
+            r"Return ONLY valid JSON.*?Return only the JSON array\.?",
+            r"\[\s*{\s*\"sentence_id\".*?\"label\".*?}\s*\]"
+        ]
+        
+        import re
+        for pattern in patterns:
+            system_prompt = re.sub(pattern, "", system_prompt, flags=re.DOTALL)
+        
+        # Ensure the probability format is at the top AND bottom clearly
+        instr = f"\n\n### MANDATORY OUTPUT FORMAT (PROBABILITIES MODE)\n{prob_format}\n"
+        system_prompt = instr + system_prompt + instr
+        
+        # Final cleanup for any leftover label refs
+        system_prompt = system_prompt.replace('"label"', '"probs"')
     if eval_type == "few_shot" or eval_type == "few_shot_learn_full":
         # Identify Fold for target term
         target_fold_idx = -1
@@ -462,13 +590,20 @@ def log_to_wandb(term: str, eval_type: str, df_st_sorted: pd.DataFrame, ndcg_sco
     confusion_table = wandb.Table(
         columns=["true_label", "pred no value", "pred potential value", "pred certain value", "pred high value"]
     )
+    def safe_int(v):
+        try:
+            if pd.isna(v): return 0
+            return int(v)
+        except:
+            return 0
+
     for true_label, row in sorted_confusion.iterrows():
         confusion_table.add_data(
             true_label,
-            int(row.get("no value", 0)),
-            int(row.get("potential value", 0)),
-            int(row.get("certain value", 0)),
-            int(row.get("high value", 0)),
+            safe_int(row.get("no value", 0)),
+            safe_int(row.get("potential value", 0)),
+            safe_int(row.get("certain value", 0)),
+            safe_int(row.get("high value", 0)),
         )
     for rank, (_, row) in enumerate(df_st_sorted.iterrows(), start=1):
         # Some rows might not have label_score if you later change filtering
@@ -620,6 +755,56 @@ def highlight_sentences_in_paragraph(paragraph_text: str, sentence_items: List[D
     result.append(paragraph_text[curr_idx:])
 
     return "".join(result)
+
+
+def extract_json_array(text: str) -> List[Dict[str, Any]]:
+    # 0. Pre-process: Strip <think> blocks which confuse the bracket search
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    if '<think>' in text:
+        # If still there, it might be unclosed
+        text = re.sub(r'<think>.*', '', text, flags=re.DOTALL)
+
+    # 1. First, try to handle common LLM formatting hallucinations
+    # Handle "0. nine" -> "0.9", "0. zero" -> "0.0", etc.
+    num_map = {
+        "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
+        "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9"
+    }
+    for word, digit in num_map.items():
+        text = re.sub(rf"0\.\s*{word}", f"0.{digit}", text, flags=re.IGNORECASE)
+    
+    # Handle leading zeros in numbers (e.g., "00" or "0. 9") which are invalid JSON
+    # Replace "certain value": 00 with 0.0
+    text = re.sub(r':\s*0(\d+)', r': 0.\1', text)
+    # Handle standalone 00 -> 0
+    text = re.sub(r':\s*00(?!\.)', r': 0', text)
+    
+    # 2. Existing JSON extraction logic
+    try:
+        # Find first [ and last ]
+        start = text.find('[')
+        end = text.rfind(']')
+        if start != -1 and end != -1:
+            json_str = text[start:end+1]
+            return json.loads(json_str)
+        
+        # If no brackets, maybe it's a raw object with a list inside?
+        start_obj = text.find('{')
+        end_obj = text.rfind('}')
+        if start_obj != -1 and end_obj != -1:
+            json_str = text[start_obj:end_obj+1]
+            data = json.loads(json_str)
+            if isinstance(data, list): return data
+            for k in ["results", "output", "ranking", "predictions", "data", "probs"]:
+                if k in data and isinstance(data[k], list):
+                    return data[k]
+        
+        return json.loads(text)
+    except Exception as e:
+        print(f"Error parsing JSON: {e}")
+        # Show more of the response for debugging truncation/formatting
+        print(f"Original Text snippet (first 2000 chars): {text[:2000]}...")
+        raise e
 
 
 async def evaluate_large_context(term: str, sentences_path: Path, paragraphs_path: Path, args) -> Tuple[str, List[float]]:
@@ -912,18 +1097,19 @@ def main():
     ap.add_argument("--log", default="false", help="Log to wandb")
     ap.add_argument("--verbose", default="false", help="Verbose output")
     ap.add_argument("--id_check", default="false", help="Run ID check")
+    ap.add_argument("--prompt", default=None, help="Path to custom system prompt file")
     args = ap.parse_args()
 
+async def run_ranking_engine(args):
     sent_path = Path(args.sentences)
     if not sent_path.exists():
-        raise FileNotFoundError(f"File not found: {sent_path}")
+        return args.term, [], f"File not found: {sent_path}"
 
     prov_path = Path(args.provisions)
     if not prov_path.exists():
-        raise FileNotFoundError(f"File not found: {prov_path}")
+        return args.term, [], f"File not found: {prov_path}"
 
     # For large_context we need paragraph.json too
-    # Assuming it's in the same directory as sentences
     if args.type == "large_context":
         para_path = sent_path.parent / f"{args.term.replace(' ', '_')}-paragraph.json"
         if not para_path.exists():
@@ -932,10 +1118,9 @@ def main():
             if fallback.exists():
                 para_path = fallback
             else:
-                 raise FileNotFoundError(f"Paragraph file not found: {para_path}")
-                 
-        asyncio.run(evaluate_large_context(args.term, sent_path, para_path, args))
-        return
+                return args.term, [], f"Paragraph file not found: {para_path}"
+        await evaluate_large_context(args.term, sent_path, para_path, args)
+        return args.term, [], "OK"
 
     with sent_path.open("r", encoding="utf-8") as f:
         sent_json = json.load(f)
@@ -944,18 +1129,19 @@ def main():
 
     df = build_records(sent_json)
     if df.empty:
-        raise ValueError("No sentences loaded.")
+        return args.term, [], "No sentences loaded."
 
     if args.term not in provisions:
-        raise KeyError(f"Term '{args.term}' not found in provisions.json. Available keys: {list(provisions.keys())[:10]} ...")
+        return args.term, [], f"Term '{args.term}' not found in provisions.json"
+        
     raw_statute = provisions[args.term]["raw"]
-    analyzed_statute = provisions[args.term]["analyzed"]
-
+    
     ndcg_scores = []
     df_st_sorted = None
+    ndcg_f = get_ndcg_score()
 
     if args.type == "naive":
-        model = SentenceTransformer("all-MiniLM-L6-v2")
+        model = get_sentence_transformer()
         query_emb = model.encode([args.term], convert_to_numpy=True)
         sent_embs = model.encode(df["text"].tolist(), batch_size=64, convert_to_numpy=True)
 
@@ -964,126 +1150,77 @@ def main():
         df_st["similarity"] = sims
         df_st_sorted = df_st.sort_values("similarity", ascending=False).reset_index(drop=True)
 
-        # NDCG evaluation
         for k in [10, 20, 40, 100]:
-            ndcg_scores.append(ndcg_score([df_st_sorted["label_score"].tolist()], [df_st_sorted["similarity"].tolist()], k=k))
-    if args.type in ["zero_shot", "few_shot", "few_shot_learn", "probabilities"]:
-        # Get GPT labels for each sentence
-        system_prompt = asyncio.run(
-            retrieve_system_prompt(args.term, args.type, df, raw_statute, args.id_check, provisions)
-        )
-        print(system_prompt)
-        df_gpt = asyncio.run(gpt_label_batch(df, args.type, args.term, args.id_check, raw_statute, system_prompt))
+            ndcg_scores.append(ndcg_f([df_st_sorted["label_score"].tolist()], [df_st_sorted["similarity"].tolist()], k=k))
+
+    elif args.type in ["zero_shot", "few_shot", "few_shot_learn", "probabilities"]:
+        system_prompt = await retrieve_system_prompt(args.term, args.type, df, raw_statute, args.id_check, provisions, args.prompt)
+        if args.verbose == "true":
+            print(system_prompt)
+        df_gpt = await gpt_label_batch(df, args.type, args.term, args.id_check, raw_statute, system_prompt, verbose=(args.verbose == "true"), model=args.model)
         
-        # Merge GPT labels back into the original df (which has text + human labels)
         df_merged = df.merge(df_gpt, on="sentence_id", how="left")
-
-        # Keep only rows with a valid human label (>= 0) and a GPT score
         df_eval = df_merged[df_merged["label_score"] >= 0].copy()
-        df_eval = df_eval.dropna(subset=["gpt_label_score"])
+        
+        # Ensure gpt_label_score is present
+        if "gpt_label_score" not in df_eval or df_eval.empty:
+             print(f"Warning: No valid GPT scores for {args.term}")
+             return args.term, [0.0, 0.0, 0.0, 0.0], "OK"
 
-        # Ensure numeric types
+        df_eval = df_eval.dropna(subset=["gpt_label_score"])
+        if df_eval.empty:
+             print(f"Warning: df_eval became empty after dropping NaNs for {args.term}")
+             return args.term, [0.0, 0.0, 0.0, 0.0], "OK"
+
         df_eval["label_score"] = df_eval["label_score"].astype(float)
         df_eval["gpt_label_score"] = df_eval["gpt_label_score"].astype(float)
 
-        # Sort by GPT's predicted relevance
         y_true = np.array([df_eval["label_score"].values], dtype=float)
         y_score = np.array([df_eval["gpt_label_score"].values], dtype=float)
         
         for i in [10, 20, 40, 100]:
-            ndcg_scores.append(ndcg_score(y_true, y_score, k=i))
+            ndcg_scores.append(ndcg_f(y_true, y_score, k=i))
         df_st_sorted = df_eval.sort_values("gpt_label_score", ascending=False).reset_index(drop=True)
-    term_ndcg = {}
-    if args.type == "few_shot_learn_full" or args.type == "zero_shot_full":
-        # Generate system prompt once (with examples from all provisions)
-        system_prompt = asyncio.run(
-            retrieve_system_prompt(args.term, args.type, df, raw_statute, args.id_check, provisions)
-        )
-        
-        print("System prompt generated. Starting parallel evaluation...")
-        
-        # Evaluate all terms in parallel
-        term_ndcg = asyncio.run(evaluate_all_terms_parallel(provisions, system_prompt, args))
-        term_ndcg = dict(sorted(term_ndcg.items()))
 
-        # Calculate and display results
-        all_values = [v for scores in term_ndcg.values() for v in scores]
-        
-        if all_values:
-            avg_ndcg_10 = np.mean([scores[0] for scores in term_ndcg.values() if len(scores) > 0])
-            avg_ndcg_20 = np.mean([scores[1] for scores in term_ndcg.values() if len(scores) > 1])
-            avg_ndcg_40 = np.mean([scores[2] for scores in term_ndcg.values() if len(scores) > 2])
-            avg_ndcg_100 = np.mean([scores[3] for scores in term_ndcg.values() if len(scores) > 3])
-            
-            print(f"\n{'='*60}")
-            print(f"Results for {len(term_ndcg)} terms:")
-            print(f"{'='*60}")
-            print(f"Average NDCG@10:  {avg_ndcg_10:.4f}")
-            print(f"Average NDCG@20:  {avg_ndcg_20:.4f}")
-            print(f"Average NDCG@40:  {avg_ndcg_40:.4f}")
-            print(f"Average NDCG@100: {avg_ndcg_100:.4f}")
-            print(f"{'='*60}\n")
-            
-            # Log to wandb if requested
-            if args.log == "true":
-                wandb.init(
-                    project="statutory-term-ndcg-eval",
-                    config={
-                        "type": args.type,
-                        "num_terms": len(term_ndcg),
-                        "system_prompt": system_prompt[:500],  # First 500 chars
-                    }
-                )
-                
-                # Log individual term results
-                for term, scores in term_ndcg.items():
-                    wandb.log({
-                        f"{term}/ndcg@10": scores[0],
-                        f"{term}/ndcg@20": scores[1],
-                        f"{term}/ndcg@40": scores[2],
-                        f"{term}/ndcg@100": scores[3],
-                    })
-                
-                # Log averages
-                wandb.log({
-                    "avg_ndcg@10": avg_ndcg_10,
-                    "avg_ndcg@20": avg_ndcg_20,
-                    "avg_ndcg@40": avg_ndcg_40,
-                    "avg_ndcg@100": avg_ndcg_100,
-                })
-                wandb.log({"system_prompt": system_prompt})
+    elif args.type in ["few_shot_learn_full", "zero_shot_full"]:
+        system_prompt = await retrieve_system_prompt(args.term, args.type, df, raw_statute, args.id_check, provisions)
+        term_ndcg = await evaluate_all_terms_parallel(provisions, system_prompt, args)
+        return args.term, [], "OK" # Aggregation handled inside
 
-                wandb.finish()
-        
-        return
-
-
-    topk = 10
-    if args.type == "naive" and args.verbose == "true" and df_st_sorted is not None:
+    if args.verbose == "true" and df_st_sorted is not None:
+        topk = 10
         for i, row in df_st_sorted.head(topk).iterrows():
-            print(f"[{i+1:>2}] sim={row['similarity']:.4f}  rel={row['label_score']:<2}  | {row['text']}")
-    elif args.type in ["zero_shot", "few_shot", "few_shot_learn", "probabilities"] and args.verbose == "true" and df_st_sorted is not None:
-        for i, row in df_st_sorted.head(topk).iterrows():
-            # use GPT’s predicted score as “sim”
-            print(f"[{i+1:>2}] sim={row['gpt_label_score']:.4f}  rel={row['label_score']:<2}  | {row['text']}")
+            sim_val = row['similarity'] if 'similarity' in row else row.get('gpt_label_score', 0)
+            print(f"[{i+1:>2}] sim={sim_val:.4f}  rel={row['label_score']:<2}  | {row['text']}")
 
-    
-    print(f"Method: {args.type} | Term: {args.term}")
     if ndcg_scores:
-        for k, ndcg in zip([10, 20, 40, 100], ndcg_scores):
-            print(f"NDCG@{k}: {ndcg}")
+        if args.verbose == "true":
+            print(f"Method: {args.type} | Term: {args.term}")
+            for k, ndcg in zip([10, 20, 40, 100], ndcg_scores):
+                print(f"NDCG@{k}: {ndcg}")
     
-    if df_st_sorted is not None:
+    if df_st_sorted is not None and args.log == "true":
         label_counts = df_st_sorted["gpt_label_str"].value_counts().to_dict() if "gpt_label_str" in df_st_sorted else {}
         confusion = pd.crosstab(df_st_sorted["label_score"], df_st_sorted["gpt_label_str"]) if "gpt_label_str" in df_st_sorted else None
-    
-        if len(ndcg_scores) > 0 and args.log == "true":
-            log_to_wandb(args.term, args.type, df_st_sorted, ndcg_scores, label_counts, confusion)
+        log_to_wandb(args.term, args.type, df_st_sorted, ndcg_scores, label_counts, confusion)
             
-    if args.type == "few_shot_learn_full":
-        all_values = [v for scores in term_ndcg.values() for v in scores]
-        avg_ndcg = sum(all_values) / len(all_values)
-        log_to_wandb(term_ndcg, avg_ndcg, system_prompt)
+    return args.term, ndcg_scores, "OK"
+
+# Main
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--sentences", default="sources/independent_economic_value/independent_economic_value-sentence.json", help="Path to sentences json")
+    ap.add_argument("--provisions", default="sources/provisions.json", help="Path to provisions json")
+    ap.add_argument("--term", default="independent economic value", help="Provision key to use as query")
+    ap.add_argument("--type", default="naive", help ="naive | zero_shot | few_shot | few_shot_learn | probabilities | large_context")
+    ap.add_argument("--model", default="gpt-4o-mini", help="Model to use (default: gpt-4o-mini)")
+    ap.add_argument("--log", default="false", help="Log to wandb")
+    ap.add_argument("--verbose", default="false", help="Verbose output")
+    ap.add_argument("--id_check", default="false", help="Run ID check")
+    ap.add_argument("--prompt", default=None, help="Path to custom system prompt file")
+    args = ap.parse_args()
+
+    asyncio.run(run_ranking_engine(args))
 
 
 if __name__ == "__main__":

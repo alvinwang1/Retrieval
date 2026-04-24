@@ -1,6 +1,57 @@
-Command: /Library/Developer/CommandLineTools/usr/bin/python3 rank.py --term preexisting work --type few_shot --sentences sources/preexisting_work/preexisting_work-sentence.json --provisions sources/provisions.json --verbose false
+Command: /opt/anaconda3/bin/python rank.py --term preexisting work --type probabilities --sentences sources/preexisting_work/preexisting_work-sentence.json --provisions sources/provisions.json --verbose false --prompt system_prompts/zero_shot_previous_best.txt
 Error Code: 1
+ERROR processing GPT probabilities: 'probs'
+Response: [
+{"sentence_id": "223e0b71-8d00-4636-a4ec-65d924153277", "label": "potential value"},
+{"sentence_id": "33ea8744-80a2-4af8-9a25-aebb8ffba5f6", "label": "high value"},
+{"sentence_id": "49a2d320-fc2e-4fad-83b5-c76ec263f8ea", "label": "no value"},
+{"sentence_id": "3b7f21ce-bd60-45f5-8d2c-8101eaa566d9", "label": "certain value"},
+{"sentence_id": "c2402e76-63ff-44dd-8b30-6668b28064b0", "label": "certain value"},
+{"sentence_id": "7c5bd4be-c7ac-4fe3-89a7-615150cef24b", "label": "certain value"},
+{"sentence_id": "c93c300b-d917-43da-8bea-0e7a4bed2d5b", "label": "certain value"},
+{"sentence_id": "376b0688-cf53-4cfe-a2b6-b8541ff03967", "label": "potential value"},
+{"sentence_id": "ff4cce8a-228c-475b-be3e-fec62b19214d", "label": "no value"},
+{"sentence_id": "5bfc067b-9b10-4959-96d6-f33c51ad5c5f", "label": "no value"},
+{"sentence_id": "4503f7a6-ee70-4961-8831-6d72ecec18dd", "label": "no value"},
+{"sentence_id": "4c0dd3bd-234d-4aa6-ade2-702778ede837", "label": "potential value"},
+{"sentence_id": "456e03f7-546d-454c-b96c-3ee445ef72bd", "label": "no value"},
+{"sentence_id": "3d621eca-0042-432d-b15c-f2338054e2cd", "label": "no value"},
+{"sentence_id": "456e9fcc-2619-49a5-a66c-fc98de4f0dd8", "label": "no value"},
+{"sentence_id": "db905c63-df62-4f7d-bc0b-f6864234f864", "label": "no value"},
+{"sentence_id": "f0523c4d-21d2-469c-8752-6504333eb06f", "label": "no value"},
+{"sentence_id": "65da263f-2a59-4d39-9837-1f46d429bea9", "label": "potential value"},
+{"sentence_id": "f0c483b3-124f-4110-8fe1-eecc3b94c93a", "label": "no value"},
+{"sentence_id": "639f1c32-fbf6-4ba8-be7b-2d06e3bb71ea", "label": "high value"}
+]
+wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netrc
+wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+
+GPT batches:   0%|          | 0/33 [00:00<?, ?batch/s]
+GPT batches:   0%|          | 0/33 [00:13<?, ?batch/s]
 Traceback (most recent call last):
-  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 5, in <module>
-    from openai import OpenAI, AsyncOpenAI
-ModuleNotFoundError: No module named 'openai'
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 1063, in <module>
+    main()
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 1059, in main
+    asyncio.run(run_ranking_engine(args))
+  File "/opt/anaconda3/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 1007, in run_ranking_engine
+    df_gpt = await gpt_label_batch(df, args.type, args.term, args.id_check, raw_statute, system_prompt)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 301, in gpt_label_batch
+    batch_df = await coro
+               ^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/asyncio/tasks.py", line 631, in _wait_for_one
+    return f.result()  # May raise f.exception().
+           ^^^^^^^^^^
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 265, in _gpt_probabilities_single_batch
+    probs = item["probs"]
+            ~~~~^^^^^^^^^
+KeyError: 'probs'

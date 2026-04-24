@@ -1,131 +1,100 @@
 Command: /opt/anaconda3/bin/python rank.py --term unduly disrupt the operations --type probabilities --sentences sources/unduly_disrupt_the_operations/unduly_disrupt_the_operations-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: 0e1c30db-e7f9-4f38-b709-93d270316272] Reasoning: This sentence discusses a plaintiff's efforts to schedule medical treatment without disrupting operations, providing context for the application of the phrase but lacks depth in legal interpretation.
+  [ID: fcf2269c-461a-4f36-abcd-1959a8aa7f6c] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: 5c7eaa87-4387-48a8-86d1-b9958150826a] Reasoning: This sentence references an analysis that concludes requiring comp-time usage on demand would unduly disrupt operations, providing a specific application of the phrase in a legal context.
+  [ID: 5e8ebb20-c29c-417f-9009-e96004994916] Reasoning: This sentence explains that the burden on public employers is waived in circumstances where compliance would unduly disrupt operations, adding interpretive context to the phrase.
+  [ID: 0db70700-222f-49db-be43-ad19915f7f8a] Reasoning: This is another direct quote of the statute, providing no new interpretive context or application.
+  [ID: 5814e9ee-7b8f-4e93-a0a8-8204da7c89a8] Reasoning: This sentence discusses the potential disruption of operations in the context of jurisdiction over armed forces, which is somewhat relevant but lacks direct application to the phrase of interest.
+  [ID: cf4788b4-3878-4805-bb4e-7f34e20948bc] Reasoning: This sentence is a repeat of a previous one, providing no new information or context.
+  [ID: 66e1fcd7-3188-4751-9f02-0c9201051f7e] Reasoning: This sentence is similar to another that discusses the waiver of burden in cases of disruption, but it does not add new interpretive value.
+  [ID: 4f60ebff-43e6-47c0-9aa1-54ce75c192b6] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: 596d33e0-20f3-4437-8784-41907707f3b9] Reasoning: This is another direct quote of the statute, providing no new interpretive context or application.
+  [ID: 4ecabc60-a8b6-4b1b-b615-790c9eac4922] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: 906b3735-d75e-4b71-9c69-374e90ad674a] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: a8520d51-1d49-4a1f-8cad-4b5559d1a453] Reasoning: This sentence references a section of the statute but does not provide new interpretive context or application.
+  [ID: 1e9602e4-de12-4ac1-ada1-c583c2e44add] Reasoning: This sentence discusses the state's ability to limit access to facilities to avoid disruption, providing a relevant application of the phrase.
+  [ID: 7b8643b3-cb86-4bbc-88e3-c680405f763f] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: 453cb2eb-5644-40a6-b130-874dd7ce15dd] Reasoning: This sentence paraphrases the statute but does not provide new interpretive context or application.
+  [ID: 1707a73e-f16a-43a3-8041-28a3e5dfab67] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: 57c0e7cd-6b7d-4f1f-a2f1-632830da60ff] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: 4e1af20a-1827-45d3-be22-20268783f922] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: 2b621124-5210-45bc-a093-f5b46fd8737e] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: d972965e-fd2d-45cb-aa6e-31ccdacd465b] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: 1c2f9a62-94c0-4281-848b-8ad8c651374a] Reasoning: This is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: f707e790-1ddc-40e8-b891-cbc0e03798f7] Reasoning: This sentence summarizes the FLSA requirements regarding compensatory time, reiterating the statute without adding new interpretive context.
+  [ID: 550a3018-cabd-47a8-a404-392cc4cb604a] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context or application.
+  [ID: 35d5ac79-1cc0-41e7-8dd2-fd06ee330dc9] Reasoning: This sentence outlines the two conditions for taking compensatory time, but it does not provide deeper interpretive context or application.
+  [ID: f786e4df-f043-4bd1-bc2e-c134fd1dbd58] Reasoning: This sentence discusses the authority of precinct commanders regarding operational levels, providing context on how 'unduly disrupt' is applied in practice.
+  [ID: e0453ef3-57e6-4f42-88ab-bea541320f24] Reasoning: This sentence critiques the justification for declaring a logbook full, arguing it does not meet the statutory definition of 'unduly disrupt', thus providing interpretive context.
+  [ID: 4587dd94-fa04-4bfe-9e3c-396bb4e8e9aa] Reasoning: This is a direct quote of the statute, offering no new interpretive value.
+  [ID: 2c63a825-658e-492b-87e6-f119f14331fc] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context.
+  [ID: ec6805e1-f676-4b46-b1c1-957342855601] Reasoning: This sentence is a direct quote of the statute, offering no new interpretive value.
+  [ID: 63a9e4cb-8961-4fcc-a40c-eb256df4a9b1] Reasoning: This sentence provides insight into Congress's intent regarding employee rights and the limitations on employer discretion, adding interpretive context.
+  [ID: 0ae75c85-e0a6-4ee0-9384-10ff6fbe9cc3] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context.
+  [ID: 2ed11a5a-81f7-43e6-99a7-250af80fca7e] Reasoning: This sentence is a direct quote of the statute, offering no new interpretive value.
+  [ID: 2cece004-3042-4233-a8e7-1855a1438b15] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context.
+  [ID: 99026bc9-4b4f-4cd1-9cdb-d7de7f8c1739] Reasoning: This sentence summarizes the limitation imposed by the statute but does not provide deeper interpretive context.
+  [ID: 2517b10d-1f89-44bc-ac7a-1e4ba818f2c7] Reasoning: This sentence discusses a case where speech did not disrupt operations, providing an application of the term in a different context.
+  [ID: fcb2cfc3-4ac1-4631-92d6-136940a3162a] Reasoning: This sentence discusses previous complaints regarding compensatory time requests, providing context on how 'unduly disrupt' is interpreted in practice.
+  [ID: ff6d9127-8f51-4c76-b2d6-fb69e150c58e] Reasoning: This sentence is similar to the previous one, discussing a past complaint without adding new interpretive value.
+  [ID: 95f50cc3-80a1-4b14-bd0c-1fc3bef5d70c] Reasoning: This sentence reiterates the statutory requirement without providing new interpretive context.
+  [ID: 02750c9e-47aa-4515-9d7e-1c5c7f977bdd] Reasoning: This sentence references a statement regarding notice to avoid disruption, providing some interpretive context but remains somewhat general.
+  [ID: 5c9b9c2d-311e-46ca-a439-ea319244dc12] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context.
+  [ID: 09dc5ad0-e025-4411-bd31-1a727900e7b3] Reasoning: This sentence discusses a specific case where the county must show disruption, providing a practical application of the term.
+  [ID: e252f0e4-e9c5-4ddc-a463-165761e9da3c] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context.
+  [ID: 5d1ebf96-f8fe-445f-998b-f40d71c5f3b8] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context.
+  [ID: 1c4b27d2-a907-4a82-ad3c-3be075bce87b] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context.
+  [ID: d1f8504f-e7f8-4ca3-9c68-43262c10fb45] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context.
+  [ID: 80c9f0e2-9859-4ed0-9ba1-adf04b29b0c9] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context.
+  [ID: 31040398-acc9-49e9-a2ae-20e17e77b0bd] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive context.
 Method: probabilities | Term: unduly disrupt the operations
-NDCG@10: 0.5955618792960556
-NDCG@20: 0.7364651929710999
-NDCG@40: 0.7643622442512433
-NDCG@100: 0.8386226064916086
+NDCG@10: 0.7986979496328684
+NDCG@20: 0.815401263240268
+NDCG@40: 0.8409858378440201
+NDCG@100: 0.9076078627567914
 
 ----------------------------------------
 STDERR:
@@ -133,6 +102,6 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/2 [00:00<?, ?batch/s]
-GPT batches:  50%|█████     | 1/2 [00:21<00:21, 21.38s/batch]
-GPT batches: 100%|██████████| 2/2 [00:26<00:00, 11.87s/batch]
-GPT batches: 100%|██████████| 2/2 [00:26<00:00, 13.29s/batch]
+GPT batches:  50%|█████     | 1/2 [00:46<00:46, 46.56s/batch]
+GPT batches: 100%|██████████| 2/2 [00:55<00:00, 24.19s/batch]
+GPT batches: 100%|██████████| 2/2 [00:55<00:00, 27.55s/batch]

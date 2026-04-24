@@ -1,4 +1,4 @@
-Command: /opt/anaconda3/bin/python rank.py --term dischargeable consumer debt --type probabilities --sentences sources/dischargeable_consumer_debt/dischargeable_consumer_debt-sentence.json --provisions sources/provisions.json --verbose false
+Command: /opt/anaconda3/bin/python rank.py --term dischargeable consumer debt --type probabilities --sentences sources/dischargeable_consumer_debt/dischargeable_consumer_debt-sentence.json --provisions sources/provisions.json --verbose false --prompt system_prompts/zero_shot.txt
 ----------------------------------------
 You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
 
@@ -13,17 +13,17 @@ A list of candidate sentences, each with a unique sentence_id
 Your classification must consider both the phrase of interest and the statute.
 If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
 
-✅ OUTPUT FORMAT (STRICT)
+✅ OUTPUT FORMAT (STRICT) - PROBABILITIES MODE
 
-Return ONLY a JSON array, nothing else:
+Return ONLY a JSON array of objects. Each object must include a "reasoning" field and a "probs" field with probabilities for each class:
 
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "...",
+    "reasoning": "...",
+    "probs": {"no value": 0.1, "potential value": 0.2, "certain value": 0.3, "high value": 0.4}
+  }
 ]
-
-
-No explanations, no comments, no reasoning, no additional keys.
 
 ✅ CLASSIFICATION LABELS
 
@@ -121,11 +121,140 @@ Always choose the lowest plausible label when uncertain.
 
 The goal is interpretive usefulness, not relevance to the case as a whole.
 
+  [ID: b786fc2e-3971-414d-b4f1-f32c9914ae48] Reasoning: This sentence restates the provision of the statute without adding any new interpretive information about 'dischargeable consumer debt'.
+  [ID: b64dcc16-367c-45d7-9e9e-c68d283946da] Reasoning: This sentence provides a description of the right of redemption for Chapter 7 debtors, which adds context to the phrase 'dischargeable consumer debt' by explaining its application, thus offering potential interpretive value.
+  [ID: 51ef6e61-dae7-4b9e-a3ed-178eb565395f] Reasoning: This sentence summarizes the statute but does not provide any new interpretive information about 'dischargeable consumer debt', merely restating the conditions under which redemption is permitted.
+  [ID: 075c2096-03c5-442d-ac8c-1baa0d0586da] Reasoning: This sentence quotes the statute verbatim, providing no new interpretive information regarding 'dischargeable consumer debt'.
+  [ID: 550df3e7-27ed-4132-84df-da6ba69e4a67] Reasoning: This sentence is a near-verbatim repetition of the statute, offering no new interpretive insights about 'dischargeable consumer debt'.
+  [ID: 1639a16a-2f56-4dd4-bf08-6a1317c203fb] Reasoning: This sentence is another near-verbatim repetition of the statute, providing no additional interpretive value regarding 'dischargeable consumer debt'.
+  [ID: 6cae7846-4eba-4a26-919a-a3aa638fbc7a] Reasoning: This sentence is a verbatim quote from the statute, offering no new interpretive information about 'dischargeable consumer debt'.
+  [ID: e23b1414-3061-4e5b-b41d-538690f795dd] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive insights regarding 'dischargeable consumer debt'.
+  [ID: d8d77b81-f9cf-4fa0-880e-33ca529eb0dc] Reasoning: This sentence is a verbatim quote from the statute, offering no new interpretive information about 'dischargeable consumer debt'.
+  [ID: dbbf175e-57f9-4638-8fe6-27a45d33698f] Reasoning: This sentence is a verbatim repetition of the statute, providing no additional interpretive value regarding 'dischargeable consumer debt'.
+  [ID: 57af6fc1-0769-4cbd-a020-0f4cdcf65e63] Reasoning: This sentence paraphrases the statute without adding any new interpretive information.
+  [ID: b0a90821-d18a-4f10-9ac8-9c1dd500cf90] Reasoning: This sentence quotes the statute verbatim, providing no additional interpretive value.
+  [ID: 98c7735a-33d5-41f7-84a2-0a5e2da6bc2e] Reasoning: This sentence also quotes the statute closely, offering no new interpretive information.
+  [ID: ac8f495f-34f1-41bf-8927-37590f881e73] Reasoning: This sentence repeats the statute verbatim, providing no additional interpretive value.
+  [ID: 274b1503-523e-4a3a-879d-3c35d897e883] Reasoning: This sentence is a verbatim repetition of the statute, thus it adds no new interpretive information.
+  [ID: b689a6d7-7251-4180-ac8c-ed731dd7a225] Reasoning: This sentence paraphrases the statute without adding any new interpretive information.
+  [ID: 098ee0f1-d0db-47bd-9b39-4499d38b89b0] Reasoning: This sentence closely resembles the statute, providing no additional interpretive value.
+  [ID: 3f63482a-c65b-4a40-94cd-975f8b93fdca] Reasoning: This sentence quotes the statute closely, offering no new interpretive information.
+  [ID: 2b438033-5ec0-4266-a3bc-6304cb498ca8] Reasoning: This sentence is a verbatim repetition of the statute, thus it adds no new interpretive information.
+  [ID: 193018e6-164e-4c80-a1ab-601056938a49] Reasoning: This sentence repeats the statute verbatim, providing no additional interpretive value.
+  [ID: d7495f94-b803-41f9-9360-c408aff959fa] Reasoning: This sentence provides explicit limitations on the right of redemption, adding interpretive value regarding the phrase of interest.
+  [ID: f4322629-6bc4-4bc7-a292-5f5178db3b66] Reasoning: This sentence discusses the implications of the statute but does not provide new interpretive information about 'dischargeable consumer debt'.
+  [ID: 02a5189f-4889-4dc3-adf8-7d0760eb92f8] Reasoning: This sentence mentions the statute but does not provide any new interpretive information about 'dischargeable consumer debt'.
+  [ID: 4f3c1969-6bf1-420f-9b05-31f62cf76947] Reasoning: This sentence states that the indebtedness is a dischargeable consumer debt but does not elaborate on its meaning.
+  [ID: de59c88d-bf7e-4540-85ea-af3d128413b5] Reasoning: This sentence is a verbatim repetition of the statute, thus it adds no new interpretive information.
+  [ID: c90f6220-24c3-4264-8bd2-e60c873390d7] Reasoning: This sentence closely resembles the statute, providing no additional interpretive value.
+  [ID: 632494c9-e480-4629-873b-fc21cc009eb5] Reasoning: This sentence states the right to redeem but does not provide new interpretive information about 'dischargeable consumer debt'.
+  [ID: 4014c6fc-8f23-4f58-a1c4-9d0abe9ea25d] Reasoning: This sentence is a verbatim repetition of the statute, thus it adds no new interpretive information.
+  [ID: cc16a2ab-5a14-46a0-9b77-0edbdbdee3ab] Reasoning: This sentence closely resembles the statute, providing no additional interpretive value.
+  [ID: 485b1b7c-3c57-4c46-854f-7129babd9487] Reasoning: This sentence quotes the statute and provides a citation but does not add any new interpretive information.
+  [ID: ad73f583-ed7e-4f22-b1bd-969581e6fefa] Reasoning: This sentence is a verbatim repetition of the statute and does not provide any additional interpretive information.
+  [ID: 28be2b1d-b02f-49c8-8986-954ad9e7df20] Reasoning: This sentence summarizes parts of the statute but does not provide new interpretive information about 'dischargeable consumer debt'.
+  [ID: caf88a93-fcb4-4c91-ba4e-024d7368d0e3] Reasoning: This sentence is a direct quote of the statute and does not add any interpretive value.
+  [ID: 127cbe97-570b-45e4-91eb-6d6a5cb82d85] Reasoning: This sentence is a verbatim repetition of the statute and does not provide any additional interpretive information.
+  [ID: 9ff04d37-db8c-42ea-af32-e1ec402dd19e] Reasoning: This sentence is a verbatim repetition of the statute and does not provide any additional interpretive information.
+  [ID: 8835dcbe-7ba2-484e-9965-230041824c3a] Reasoning: This sentence is a verbatim repetition of the statute and does not provide any additional interpretive information.
+  [ID: 1fcf1f38-6504-407b-bf91-76945663e2e4] Reasoning: This sentence is a verbatim repetition of the statute and does not provide any additional interpretive information.
+  [ID: 229626d0-5306-4b71-a19c-c1270a111186] Reasoning: This sentence is a verbatim repetition of the statute and does not provide any additional interpretive information.
+  [ID: 1d781c36-6888-42e8-8049-d61821d0ca92] Reasoning: This sentence quotes the statute but does not add any new interpretive information about 'dischargeable consumer debt'.
+  [ID: 568c081b-e954-4082-80a5-ee94f278d03e] Reasoning: This sentence is a direct quote of the statute and does not provide any additional interpretive information.
+  [ID: e0803c32-df42-42ea-b5c8-13ef6837b93c] Reasoning: This sentence summarizes the statute but does not provide new interpretive information about 'dischargeable consumer debt'.
+  [ID: 29e90950-5c8b-40af-8872-eb8fe631fbd5] Reasoning: This sentence is a verbatim repetition of the statute and does not provide any additional interpretive information.
+  [ID: d49ac782-449d-4c48-8098-b7507dd4a4ec] Reasoning: This sentence quotes the statute and does not add any new interpretive information about 'dischargeable consumer debt'.
+  [ID: 621a14ce-aab4-4924-8d18-02536d03ac50] Reasoning: This sentence is a direct quote of the statute and does not provide any additional interpretive information.
+  [ID: 9155c098-0913-447a-8448-8ba344fe9503] Reasoning: This sentence discusses a specific scenario that may imply boundaries of the term 'dischargeable consumer debt', suggesting it does not fit certain definitions, thus providing implicit elaboration.
+  [ID: 85bde5bd-eacb-4b51-8a96-72761eeb83aa] Reasoning: This sentence references legislative history related to the statute and discusses the context of 'dischargeable consumer debt', providing some interpretive value.
+  [ID: 66d333b3-8bbe-4f97-a539-9abd3416c11b] Reasoning: This sentence summarizes the statute but does not provide new interpretive information about 'dischargeable consumer debt'.
+  [ID: b469cc63-00c4-45cf-b41b-234282388484] Reasoning: This sentence summarizes the statute but does not provide new interpretive information about 'dischargeable consumer debt'.
+  [ID: 11f5ae56-8df1-415f-ba1e-5dcfbe9cb642] Reasoning: This sentence is a verbatim repetition of the statute and does not provide any additional interpretive information.
+  [ID: ed7f026e-1ea3-4055-920b-7dfbb527b76b] Reasoning: This sentence summarizes the statute but does not provide new interpretive information about 'dischargeable consumer debt'.
+  [ID: 5e074ed0-d826-4e09-8dae-f75ffdaf4d4f] Reasoning: This sentence discusses a specific scenario regarding the applicability of 'dischargeable consumer debt', providing implicit elaboration.
+  [ID: 76cd2386-76cb-4889-8d8f-81e7c1deaee3] Reasoning: This sentence is a verbatim repetition of the statute and does not provide any additional interpretive information.
+  [ID: 8da6ba24-8be5-4906-afac-160e114c5b77] Reasoning: This sentence is a verbatim repetition of the statute and does not provide any additional interpretive information.
+  [ID: bfbec5bc-7618-441c-b901-c339b67dad02] Reasoning: This sentence discusses the application of the statute in a specific context, providing implicit elaboration about 'dischargeable consumer debt'.
+  [ID: bcd4f4aa-cb8d-448e-8734-9051c08e69a6] Reasoning: This sentence quotes the statute verbatim without adding any new interpretive information.
+  [ID: 70a1a838-9924-4917-9139-641e47632a5c] Reasoning: This sentence paraphrases the statute but does not provide any new interpretive information about 'dischargeable consumer debt'.
+  [ID: f5734f34-b0bb-4eb4-b47a-cbd6e4daef43] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: 781ed679-0a7a-4280-9a38-9a78b2f97cd6] Reasoning: This sentence states that a specific obligation is a dischargeable consumer debt, but it does not elaborate on the meaning of the term.
+  [ID: 624d88dd-8703-48cd-ad62-9c67fa67f056] Reasoning: This sentence summarizes the statute but does not provide any new interpretive information about 'dischargeable consumer debt'.
+  [ID: c1b74b7f-6d63-4d6f-af3d-f9d6e7cb5b2a] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: 35ba9109-0d94-4d80-a3cf-e45ab6ebe45f] Reasoning: This sentence references a counterclaim related to dischargeable consumer debt but does not clarify or elaborate on the term itself.
+  [ID: 449c8f9f-f779-46ab-8c5a-f889eebbd69d] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: e95344d5-9153-4756-817e-d56258ef5a9e] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: 37f75cc8-3c01-4314-880b-0e17ae3d157f] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: 301ad613-f486-43ff-80b6-3b25dc7653f3] Reasoning: This sentence provides an explicit breakdown of the elements for redemption, which adds interpretive value regarding the term 'dischargeable consumer debt'.
+  [ID: 5b4824a3-f17a-4d2c-9db7-b502911897a3] Reasoning: This sentence states that defendants are using property securing a dischargeable consumer debt for personal use, but it does not elaborate on the meaning of the term.
+  [ID: 66d69697-2112-4b99-b40b-bbba0fbb3f51] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: b243a5cf-280f-4488-bede-217a80ec87fe] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: dded750f-0830-4359-9bef-cb7a12310c9e] Reasoning: This sentence provides a procedural note about the application of the statute but does not clarify the meaning of 'dischargeable consumer debt'.
+  [ID: a0e1903b-2e26-4dc4-a6a8-f8d04c0d3f57] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: 4e5f673f-4f0d-4220-8986-2aec28b14086] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: ccb6792b-fa33-4634-ab87-2421c88f132d] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: f810f790-8f12-4a9d-aab9-52347b3d266e] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: a632be06-a17c-42c7-9ba4-90223a613874] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: 47d8cd79-493c-4db5-8b3f-ea3a0caaa909] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: afcb51c6-c9d5-4da4-8188-71eb28917288] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: dfe117d7-944b-4161-b6b9-d0a6173dfe3e] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: 49566355-3c90-415a-b7f6-0dc8c28fb1d2] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: 501e11e2-29c1-4d92-bf26-02fc1fd6d145] Reasoning: This sentence is a direct quote from the statute and does not add any new interpretive information.
+  [ID: f831cd53-76c1-4331-9a53-0f5b9545bea3] Reasoning: This sentence paraphrases the statute without adding any new interpretive information about 'dischargeable consumer debt'.
+  [ID: 2de5109a-c8da-45d8-be41-650dfda3146a] Reasoning: This sentence provides context about the limitations of Section 722 but does not elaborate on the meaning of 'dischargeable consumer debt'.
+  [ID: ae7b854d-ba48-4c1e-ad5a-5f3dac89f1bc] Reasoning: This sentence repeats the statute without providing any new interpretive information about 'dischargeable consumer debt'.
+  [ID: a0bf0619-b9db-4b34-b244-57b2bae2a0c9] Reasoning: This sentence closely paraphrases the statute and does not add any new interpretive information about 'dischargeable consumer debt'.
+  [ID: cd6e553b-91a5-4cab-9af2-2a9a78f3609b] Reasoning: This sentence quotes the statute verbatim, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: 2ecacc03-9151-46d4-b3a1-11e1716c3e62] Reasoning: This sentence quotes the statute verbatim, offering no new interpretive information about 'dischargeable consumer debt'.
+  [ID: fad1503b-7d02-4a74-8d72-f00fbd1c78b9] Reasoning: This sentence repeats the statute without adding any new interpretive information about 'dischargeable consumer debt'.
+  [ID: 7b2d0d64-ddd6-4db4-8d70-7b46ca630d92] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: 4627eca8-1aaf-44b4-b332-21a0227da498] Reasoning: This sentence outlines the conditions for redemption but does not provide new interpretive information about 'dischargeable consumer debt'.
+  [ID: 5a0a2115-30be-4082-ba51-45d9d0038ad4] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: 868a2358-d8e7-4f97-89f6-9dcf85682c4d] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: a549916d-c8ae-46ef-b608-13a684c3cac9] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: b18c96c2-bf59-449a-877a-0c1d0fb23989] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: 80105c77-4c6a-4879-879c-ccc9881e172c] Reasoning: This sentence provides a factual scenario that implies the meaning of 'dischargeable consumer debt' but does not explicitly define or elaborate on it.
+  [ID: 4f76daa4-18c9-4c05-8dbf-e50061bd079c] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: 0a7bbb61-e4c2-46e1-8aab-8c0c5f44d865] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: 84be3d55-bc08-402b-bba6-9b9cbd446586] Reasoning: This sentence provides a new perspective on the redemption process but does not elaborate on the meaning of 'dischargeable consumer debt'.
+  [ID: d729083e-fa60-4967-bf7b-397f0d931dc5] Reasoning: This sentence discusses motions related to redemption but does not clarify the meaning of 'dischargeable consumer debt'.
+  [ID: 59d8410f-b141-4c80-b0b9-034a468064ee] Reasoning: This sentence quotes the statute and does not provide any new interpretive information about 'dischargeable consumer debt'.
+  [ID: 18d80abd-ef3a-4073-a52f-92650b0f6156] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: b37c8079-0da2-4219-ac5c-5155bbdfa11c] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: 8fbe48a3-3913-4072-ad96-4289664f1d34] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: 9bcb037a-dd6d-4466-a03d-fb4d22096152] Reasoning: This sentence paraphrases the statute without adding any new interpretive information about 'dischargeable consumer debt'.
+  [ID: cf687875-e8c4-4d47-85ca-59d6a6c3e692] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: 42b644b7-d910-4420-90ad-68c7e5d5e514] Reasoning: This sentence is a verbatim repetition of the statute, providing no new interpretive information about 'dischargeable consumer debt'.
+  [ID: c5b9b701-e6b9-41d8-9fca-b7d59baed54b] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: 6d2995ec-798a-40c3-a225-0a3ca563543a] Reasoning: This sentence is a near-verbatim repetition of the statute and does not provide any new interpretive information.
+  [ID: 6894bcf8-0e06-401c-a0e9-95268bdc49c9] Reasoning: This sentence is a near-verbatim repetition of the statute and does not provide any new interpretive information.
+  [ID: c4f8030e-bb67-4f71-9996-2d6ad626e2b9] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: 48aae0e1-76f4-4ac5-9abe-5d36d6a4e737] Reasoning: This sentence provides an application of the statute to a specific scenario, which adds interpretive value regarding the meaning of 'dischargeable consumer debt' in context.
+  [ID: 7a34bd73-e808-45f0-9457-c3853b7ddca0] Reasoning: This sentence discusses the statute and its implications, providing context that may help interpret the phrase 'dischargeable consumer debt'.
+  [ID: fee07614-b7e2-4f6f-86c0-fe719a33aa00] Reasoning: This sentence outlines the legal standards and procedures related to the statute, which adds interpretive context to 'dischargeable consumer debt'.
+  [ID: 70e329a0-46a8-4fb0-8403-0c83922b5842] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: a9c49ed8-ccbc-455b-aa64-44bf8fb862eb] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: 170913a0-e31a-4971-91ec-b1698b2c9fde] Reasoning: This sentence provides a clear statement about the conditions under which redemption applies, which adds interpretive value regarding 'dischargeable consumer debt'.
+  [ID: 6fd8f35f-c117-4f0a-ac16-ae9aab8e0ac4] Reasoning: This sentence discusses the statutory preconditions for redemption, which adds interpretive context to the meaning of 'dischargeable consumer debt'.
+  [ID: cfe4cb31-7c99-497e-b2e9-e50d92ba9ead] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: bd1177c2-ad5e-4b6d-addc-41b43450649e] Reasoning: This sentence summarizes the statute and provides context for the conditions under which redemption is allowed, which adds interpretive value.
+  [ID: 81233181-bc85-44fa-9fb7-f112b49e3d98] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: 3d865e70-52e6-4ced-98a0-8d7f3faf3e73] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: db373286-0fd2-4579-bfbe-5751f0452763] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: 9508690a-c652-4a9a-9d5c-2b871add7205] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: 5bc62e3c-411d-44f3-afff-f4d0dea43370] Reasoning: This sentence summarizes the statute and clarifies the conditions under which redemption is allowed, which adds interpretive value.
+  [ID: 911c39cb-63f3-41c4-92f6-73d7a78ac632] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: 82acd3ef-8887-40bd-8bef-30fce4324f76] Reasoning: This sentence provides a specific assertion regarding the application of the statute, which adds interpretive value regarding 'dischargeable consumer debt'.
+  [ID: eccfdfd6-63e1-4837-9a4b-2a8299eea1c1] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: a61512a6-a032-4c30-9b6d-ed6b2b02dc8f] Reasoning: This sentence is a verbatim repetition of the statute and does not add any new interpretive information.
+  [ID: f76608b1-4b48-4ebe-b981-d43c54325023] Reasoning: This sentence references the statute but does not provide any new interpretive information about 'dischargeable consumer debt'.
+  [ID: 700cab7c-5ae3-4798-b3cb-98d005afcd48] Reasoning: This sentence provides a summary of the statute and clarifies the conditions for redemption, which adds interpretive value regarding 'dischargeable consumer debt'.
+  [ID: 0a5968e7-03ca-4e60-bc2f-7adf2cb402f6] Reasoning: This sentence identifies a statutory requirement related to 'dischargeable consumer debt', which adds interpretive value.
 Method: probabilities | Term: dischargeable consumer debt
-NDCG@10: 0.293099478690203
-NDCG@20: 0.37971807233608756
-NDCG@40: 0.5341610883319892
-NDCG@100: 0.6697252436369932
+NDCG@10: 0.3580384759908858
+NDCG@20: 0.5026068807219686
+NDCG@40: 0.6283493364523094
+NDCG@100: 0.6836962950646831
 
 ----------------------------------------
 STDERR:
@@ -133,10 +262,10 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/6 [00:00<?, ?batch/s]
-GPT batches:  17%|█▋        | 1/6 [00:10<00:53, 10.79s/batch]
-GPT batches:  33%|███▎      | 2/6 [00:25<00:53, 13.28s/batch]
-GPT batches:  50%|█████     | 3/6 [00:27<00:23,  7.82s/batch]
-GPT batches:  67%|██████▋   | 4/6 [00:30<00:11,  5.99s/batch]
-GPT batches:  83%|████████▎ | 5/6 [00:30<00:04,  4.03s/batch]
-GPT batches: 100%|██████████| 6/6 [00:30<00:00,  2.70s/batch]
-GPT batches: 100%|██████████| 6/6 [00:30<00:00,  5.17s/batch]
+GPT batches:  17%|█▋        | 1/6 [00:25<02:09, 25.87s/batch]
+GPT batches:  33%|███▎      | 2/6 [00:36<01:07, 16.92s/batch]
+GPT batches:  50%|█████     | 3/6 [00:45<00:40, 13.39s/batch]
+GPT batches:  67%|██████▋   | 4/6 [00:48<00:18,  9.09s/batch]
+GPT batches:  83%|████████▎ | 5/6 [00:50<00:06,  6.49s/batch]
+GPT batches: 100%|██████████| 6/6 [00:54<00:00,  5.72s/batch]
+GPT batches: 100%|██████████| 6/6 [00:54<00:00,  9.05s/batch]

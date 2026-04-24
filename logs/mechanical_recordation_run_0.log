@@ -1,131 +1,70 @@
 Command: /opt/anaconda3/bin/python rank.py --term mechanical recordation --type probabilities --sentences sources/mechanical_recordation/mechanical_recordation-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: e9a0da6a-0d25-4493-8f89-76c075421df8] Reasoning: This sentence discusses a specific instance where mechanical recordation was not performed, but it does not provide any broader interpretive context or application of the term.
+  [ID: d670b7d1-14d7-43d3-84f8-fa22cd362664] Reasoning: This sentence merely restates the definition of 'documentary materials' from the statute, providing no new interpretive insight.
+  [ID: 919722d9-aecf-48ca-9bf2-65fa07220e86] Reasoning: This sentence critiques the mechanical recordation test's adequacy in a specific context, suggesting a limitation in its application, which adds some interpretive value.
+  [ID: 2fccca26-b0d9-42a5-abf0-f0159ee29f09] Reasoning: This sentence describes a request for discovery involving mechanical recordation, but it does not provide deeper interpretive context or application.
+  [ID: 518c0b49-19dc-49df-886f-8e4c06caf981] Reasoning: This sentence references a case and discusses the application of the statute regarding mechanical recordation, providing some interpretive context.
+  [ID: 9b1d87e1-c9bf-4d86-8421-d85c6c5696a0] Reasoning: This sentence outlines a specific request for mechanical recordation in a legal context, but lacks deeper interpretive analysis.
+  [ID: 3458b712-592c-47a5-803e-f0ee5d05c3d8] Reasoning: This sentence explains the reliability of intercepted communications through mechanical recordation, providing a clear application of the term.
+  [ID: 04b110cd-3148-441a-4c5-84d8be00ed80] Reasoning: This sentence discusses the evidentiary reliability of electronic communications and the role of mechanical recordation, providing significant interpretive context.
+  [ID: 2db89ccf-8aab-4a9e-b66a-905a0414ddf7] Reasoning: This sentence critiques the statute's application regarding mechanical recordation, highlighting a potential issue in its interpretation.
+  [ID: 13a5f268-6edc-4a9f-a531-da5cf39761b1] Reasoning: This sentence describes the nature of mechanical recordations of a public event, but does not provide deeper interpretive insight.
+  [ID: 436fa7ef-f552-413f-a108-c63c4c342c22] Reasoning: This sentence states that the materials sought are mechanical recordations, but lacks any interpretive depth or context.
+  [ID: c2d9c17f-7ae7-447f-a6d6-665950931c9e] Reasoning: This sentence discusses the failure of the legislation to safeguard evidence integrity related to mechanical recordation, providing some interpretive context.
+  [ID: d5e7bd48-3c37-4065-a42b-71a036116103] Reasoning: This sentence critiques the statute's lack of control over evidence not subject to mechanical recordation, providing a relevant interpretive insight.
+  [ID: 5e80b6ce-3a02-4423-80c0-f47db4138ce8] Reasoning: This sentence raises a question about the presence of third parties during mechanical recordation, but lacks deeper interpretive analysis.
+  [ID: 2fe489c7-124e-4da5-ac0c-34dd930e0035] Reasoning: This sentence states that the determination of interception type is unnecessary, providing no new interpretive value.
+  [ID: c639c124-a753-474f-938a-94959a5a60c3] Reasoning: This sentence describes additional steps in the mechanical recordation process, but does not provide significant interpretive context.
+  [ID: c5556bd0-30e5-4a19-9cb1-0a055e91564b] Reasoning: This sentence is a direct quote of the previous sentence, providing no new information or interpretive value.
+  [ID: 0fdeba09-3d8e-4e65-ad4a-e79c25e2e7ab] Reasoning: This sentence states a procedural requirement for mechanical recordation in court, but lacks deeper interpretive context.
 Method: probabilities | Term: mechanical recordation
-NDCG@10: 0.6433305286300248
-NDCG@20: 0.7702099616635646
-NDCG@40: 0.7702099616635646
-NDCG@100: 0.7702099616635646
+NDCG@10: 0.5635694948008214
+NDCG@20: 0.7527930036858271
+NDCG@40: 0.7527930036858271
+NDCG@100: 0.7527930036858271
 
 ----------------------------------------
 STDERR:
@@ -133,5 +72,5 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/1 [00:00<?, ?batch/s]
-GPT batches: 100%|██████████| 1/1 [00:19<00:00, 19.93s/batch]
-GPT batches: 100%|██████████| 1/1 [00:19<00:00, 19.93s/batch]
+GPT batches: 100%|██████████| 1/1 [00:32<00:00, 32.55s/batch]
+GPT batches: 100%|██████████| 1/1 [00:32<00:00, 32.55s/batch]

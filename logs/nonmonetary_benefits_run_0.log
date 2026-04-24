@@ -1,131 +1,249 @@
 Command: /opt/anaconda3/bin/python rank.py --term nonmonetary benefits --type probabilities --sentences sources/nonmonetary_benefits/nonmonetary_benefits-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: f4b6283f-0fc3-4dd4-81a2-103d56de655c] Reasoning: This sentence discusses the trial court's authority to approve agreements that may include nonmonetary benefits, but it does not provide specific interpretive context or application related to the phrase of interest. It is somewhat relevant but lacks depth.
+  [ID: 3794e6f0-3371-40cb-aced-b31052fcfb9c] Reasoning: This sentence mentions nonmonetary benefits in the context of a Supreme Court case, but it does not elaborate on how these benefits relate to the statutory framework or their implications. It provides minimal context.
+  [ID: 80d2f5b6-0c9e-4bf7-84cb-5efdec20cf03] Reasoning: This sentence discusses incidental nonmonetary benefits and their relevance to a legal proceeding, but it does not clarify their significance in relation to the statutory provision or the phrase of interest. It lacks substantial interpretive value.
+  [ID: b42140aa-f41e-4119-ba30-17d3c1057487] Reasoning: This sentence provides a clear application of nonmonetary benefits in the context of corporate governance reforms and their impact on attorney's fees. It explains how these benefits were deemed sufficient to warrant approval of the settlement, adding significant interpretive depth.
+  [ID: 5e98adce-ccc1-44e5-866c-20e1c93baa3c] Reasoning: Mentions a nonmonetary benefit in the context of an appeal regarding attorneys' fees, but does not provide any interpretive context or application of the term.
+  [ID: 7d520428-0a2c-4226-91e0-af1463080f83] Reasoning: Discusses the economic value of a nonmonetary benefit but ultimately concludes that it was not quantified with reasonable certainty, providing some context for the application of the term.
+  [ID: 65c7671c-f9da-4852-8976-5b3448ea0034] Reasoning: Directly quotes a statute regarding nonmonetary benefits and attorneys' fees, offering no new interpretive context or application.
+  [ID: 3652d375-9e83-4246-8e06-1c9f32abb546] Reasoning: Reiterates the circuit court's conclusion about the failure to quantify a nonmonetary benefit, but does not add new interpretive value.
+  [ID: 5524af3e-3ca6-4889-a9f8-6055885e22a7] Reasoning: Mentions an appeal regarding attorneys' fees for a nonmonetary benefit but lacks interpretive depth or context.
+  [ID: 136eb5b3-53fb-45ff-b39b-645bfde351e8] Reasoning: States that the benefit obtained was not the type of nonmonetary benefit for which fees are required, providing some interpretive context.
+  [ID: dc0c9909-1f98-4870-8a57-02211200c0e7] Reasoning: Indicates that a fee was awarded for a nonmonetary benefit but does not elaborate on the nature or significance of that benefit.
+  [ID: 90b72080-d1f5-4f1c-9410-b05c565e01f9] Reasoning: Directly quotes a statute regarding nonmonetary benefits and attorneys' fees, offering no new interpretive context or application.
+  [ID: 6c780a06-ffb8-4159-8191-92496c8ec6b4] Reasoning: States when the concept of nonmonetary benefits first appeared in the statute, but does not provide any interpretive context.
+  [ID: cd26fadf5-9fd6-4815-975a-701efa35ba26] Reasoning: Mentions that the court can award fees based on the value of a nonmonetary benefit but lacks further context or application.
+  [ID: 74fc49f3-3f37-4bdf-a941-03f6f1dc7b4b] Reasoning: Notes the lack of case law explaining nonmonetary benefits, indicating a gap in interpretive guidance.
+  [ID: 61ab413f-9f1d-4420-a029-55fa91688d54] Reasoning: Suggests a test for nonmonetary benefits related to the attorney's work in eminent domain cases, providing useful interpretive guidance.
+  [ID: cbe7ae92-cd60-464f-a4c8-da97e4774ad0] Reasoning: Discusses the limitations of what can be considered a nonmonetary benefit, providing context for its application.
+  [ID: 6a1c28c3-fd0f-471d-b194-ea025168132b] Reasoning: Analyzes the conditions under which a redesign could qualify as a nonmonetary benefit, offering significant interpretive insight.
+  [ID: e3a15cdc-c269-49e4-a100-b6f21d9caaf2] Reasoning: States that lawyers cannot support a fee award based on a nonmonetary benefit related to severance damages, providing context for limitations.
+  [ID: ea3f588f-d212-49c1-9930-517393272e36] Reasoning: Mentions cases discussing nonmonetary benefit attorneys' fees, but does not provide specific interpretive guidance.
+  [ID: a6dbe759-84c2-42b1-944a-89f970edc035] Reasoning: Notes the requirement for nonmonetary benefits to be identified and quantified, which is relevant but lacks depth.
+  [ID: 6d66af4e-58ab-4c9d-83f5-4584000a5fbb] Reasoning: Suggests that courts have not developed clear factors for determining compensable nonmonetary benefits, indicating a gap in interpretive clarity.
+  [ID: a88e8428-926d-4359-915e-6446c8ac2fc6] Reasoning: Provides an example of a nonmonetary benefit that could be quantified, which adds practical interpretive value.
+  [ID: f9313fd5-9fd6-4815-975a-701efa35ba26] Reasoning: Mentions a court's denial of fees based on nonmonetary benefits, but lacks further context or analysis.
+  [ID: c62f7dc6-9b00-4cad-a567-944f58eae889] Reasoning: This sentence discusses a specific case where a union member's nonmonetary benefits were recognized, providing context for how nonmonetary benefits can be interpreted in a legal setting.
+  [ID: 85199cdb-7635-46e2-a2b4-d19f02f40c29] Reasoning: This sentence explains the requirements for a litigant to qualify for an award under the equitable common fund doctrine, specifically mentioning nonmonetary benefits, which adds interpretive context.
+  [ID: 7d425297-9f74-41f4-bba5-43970ed44f27] Reasoning: This sentence merely states that a comparison of benefits and costs includes nonmonetary aspects, but does not provide any deeper analysis or application.
+  [ID: f723dd0b-5b05-489e-93e1-a26ca8ce4a7d] Reasoning: This sentence outlines various situations where a district court may deny approval for a settlement, mentioning nonmonetary benefits in a broader context of class member interests, which adds some interpretive value.
+  [ID: c99a054b-f847-4bf8-b09f-54c70a06c47d] Reasoning: This sentence discusses a specific argument regarding the procurement of nonmonetary benefits, indicating a dispute over their existence, which adds context to their interpretation.
+  [ID: 35261349-db68-463a-9e92-b7c54e66ad26] Reasoning: This sentence refers to nonmonetary benefits denied to an individual, providing context for how such benefits can be perceived in a legal dispute.
+  [ID: aaf536f5-9b08-494e-963a-050fc8e718ea] Reasoning: This sentence evaluates the significance of nonmonetary benefits in the context of a jury verdict, providing insight into their perceived value in legal outcomes.
+  [ID: cf72699a-1490-46c6-943d-2943e9b1da88] Reasoning: This sentence reiterates the requirement for a litigant to impart substantial nonmonetary benefits under the equitable common benefit doctrine, which is somewhat redundant.
+  [ID: 3f267e03-6d64-4b88-8cde-d28ceeafe023] Reasoning: This sentence discusses how nonmonetary benefits can accrue to unions not formally involved in litigation, providing a broader understanding of their implications.
+  [ID: f94ca175-a259-471b-885e-ed8a7327fc33] Reasoning: This sentence emphasizes the importance of considering nonmonetary benefits in assessing the reasonableness of a settlement fund, adding interpretive depth.
+  [ID: fb0a5ce1-2a2d-483c-aced-142e3fd2f8e6] Reasoning: This sentence discusses the substantial nonmonetary benefits flowing to the class in the context of a settlement approval, providing relevant interpretive context.
+  [ID: 39ae296d-bcb4-4838-b98b-8c3b19d1bc64] Reasoning: This sentence highlights a specific nonmonetary benefit related to a legal claim, providing context for its relevance in the case.
+  [ID: ac61cbbb-6c76-45b9-8d02-a37c7d64e997] Reasoning: This sentence discusses the potential for nonmonetary benefits to create perceived indebtedness, adding a layer of complexity to their interpretation.
+  [ID: 29fe40b7-1e35-4509-b418-abe4df08039c] Reasoning: This sentence is a repeat of a previous one regarding the equitable common fund doctrine, providing no new information.
+  [ID: 1f0b6e31-4fa3-4455-932e-947ffd4c2189] Reasoning: This sentence discusses the implications of nonmonetary benefits in employment contracts, providing a different context for their interpretation.
+  [ID: 48246472-8dba-4088-930e-b4bc84418a95] Reasoning: This sentence evaluates the reasonableness of a fee in light of nonmonetary benefits, adding context to their significance in legal settlements.
+  [ID: 59d99d5e-7d56-4544-9af6-74cf9c3a5ddb] Reasoning: This sentence discusses the balance of monetary and nonmonetary benefits in a settlement, providing relevant context for their interpretation.
+  [ID: 2f763751-c9ad-4202-bfd4-fa4626a1b9b6] Reasoning: This sentence states that plaintiffs received both monetary and nonmonetary benefits, but does not provide further context or analysis.
+  [ID: 9834b3f6-969a-4087-84a8-84305b8ae6df] Reasoning: This sentence discusses the valuation of nonmonetary provisions, providing insight into their perceived value in legal contexts.
+  [ID: ab205ec9-e2e6-498c-82b2-362e4e8490cb] Reasoning: This sentence emphasizes that fee awards should not be reduced due to the production of nonmonetary benefits, adding interpretive context to their significance.
+  [ID: fac18aa5-0652-4468-a626-a16650eba824] Reasoning: This sentence outlines the conditions under which fee reimbursement is permitted, mentioning nonmonetary benefits, which adds interpretive context.
+  [ID: bd82f560-7613-43ab-901c-848ece580a79] Reasoning: This sentence describes nonmonetary benefits received by individuals, providing context for their interpretation in a specific situation.
+  [ID: 01e56e94-622f-4218-9a2b-0b32081b5ec8] Reasoning: This sentence discusses the trial court's findings regarding nonmonetary benefits, providing context for their relevance in a legal decision.
+  [ID: 7a74e8a7-b956-46be-9882-8080002cff97] Reasoning: This sentence merely states that the derivative settlement does not reflect the nonmonetary benefits, without providing any additional context or analysis.
+  [ID: 918886d9-e987-4a28-83e8-002a028d44d0] Reasoning: This sentence mentions that the new settlement agreement enhances nonmonetary benefits but does not explain how or in what context, lacking depth.
+  [ID: b5424398-bead-4838-b950-9cd71d9c2d9f] Reasoning: While it notes an increase in nonmonetary benefits, it does not provide specific details or implications, making it less informative.
+  [ID: 90c81ed8-dc8c-43cb-9fb7-a783cfdbff3d] Reasoning: This sentence provides a specific example of a nonmonetary benefit (credit for experience) but lacks broader interpretive context.
+  [ID: 3d565ea1-91d4-4b25-9135-1c473dff073e] Reasoning: This sentence discusses the allocation of nonmonetary benefits based on seniority, providing some context but lacking depth in legal interpretation.
+  [ID: 091baea2-127d-4dfe-900b-a876dc7cdce8] Reasoning: This sentence introduces the common benefit doctrine but does not elaborate on how it applies to nonmonetary benefits, limiting its interpretive value.
+  [ID: 9028df65-487c-48c9-a391-a1719a41d98f] Reasoning: This sentence lists various benefits provided but does not explain their significance or context, making it less valuable.
+  [ID: 216e87f0-5cc0-4e08-ab8c-db84513eeb02] Reasoning: This sentence lists benefits but lacks any interpretive context or analysis, rendering it largely redundant.
+  [ID: dda0c1e9-f640-496d-9723-c1f7bc6339e3] Reasoning: This sentence states that benefits represented a substantial portion of expenditures but does not provide further context or analysis.
+  [ID: 169be32e-ce2a-4207-b048-b855a73288c1] Reasoning: This sentence simply states that numerous benefits were provided without any additional context or analysis.
+  [ID: 940f23a1-cdd1-4f1d-a69d-f29c4a51eb62] Reasoning: This sentence discusses various interests in a settlement context but does not clarify how nonmonetary benefits play a role, limiting its value.
+  [ID: 60d2f407-a737-4426-a791-20ce78f330e6] Reasoning: This sentence describes consumer products offering nonmonetary benefits but lacks legal context or relevance to the statute.
+  [ID: 20bad5ab-ac3c-4345-9dea-e704e528a841] Reasoning: This sentence discusses the nonmonetary benefits of collective bargaining but does not provide specific legal context or implications.
+  [ID: 74ef29c6-4844-48ce-b17b-21c26f607119] Reasoning: This sentence states that a family was entitled to nonmonetary benefits but lacks further context or analysis.
+  [ID: 06eeed4d-72e9-4679-a5d8-8b4c069820ac] Reasoning: This sentence discusses extending the common-benefit theory to nonmonetary benefits but lacks specific application or context.
+  [ID: 45c9fece-33bc-48e8-85e7-c3ff6edf7d72] Reasoning: This sentence lists specific nonmonetary benefits but does not provide context or implications, limiting its interpretive value.
+  [ID: fb380c57-7d4f-4c60-8cb2-2dc62a25d8ac] Reasoning: This sentence notes the absence of a need to consider nonmonetary benefits due to substantial pecuniary benefits, which provides some context.
+  [ID: d78318bc-9be8-43a2-9dbe-7322ecf0a8e9] Reasoning: This sentence discusses substantial nonmonetary benefits in the context of corporate reforms, providing relevant interpretive context.
+  [ID: 555c72aa-35eb-4e6b-a827-e2dd25385092] Reasoning: This sentence critiques the district court's valuation of nonmonetary benefits, providing a legal perspective that adds interpretive value.
+  [ID: 04020ae7-1e06-49bb-b40b-d998ffc4825e] Reasoning: This sentence discusses the court's discretion regarding nonmonetary benefits in the context of a settlement, providing relevant legal analysis.
+  [ID: 7c77f3dd-67cd-45fe-b83f-a39286f55f02] Reasoning: This sentence notes a net pecuniary benefit without regard to nonmonetary benefits, providing some context but lacking depth.
+  [ID: 3700c335-b83a-4fb8-868b-10a0f9f23009] Reasoning: This sentence states that the court need not consider nonmonetary benefits due to adequate pecuniary benefits, providing some interpretive context.
+  [ID: 2bc16a06-1b03-4f0b-ad62-192cb8dd1d24] Reasoning: This sentence discusses educational benefits in a tax context but does not provide relevant legal analysis related to the statute.
+  [ID: aba78c2a-fa8e-4c25-8a9f-cf04d7d948ed] Reasoning: This sentence discusses equitable awards of attorneys' fees related to nonmonetary benefits but lacks specific application or context.
+  [ID: d14eb230-c613-4ce9-8c9e-7d47b6a639f8] Reasoning: This sentence states that plaintiffs enjoy no nonmonetary benefit post-ruling, but lacks further context or implications.
+  [ID: 71cc4e9a-071b-4bd5-afcd-b499114dc024] Reasoning: This sentence discusses guidelines that do not qualify as nonmonetary benefits, but it does not provide any interpretive context or application related to the statute.
+  [ID: 013a35c2-fd23-4690-9705-5a317129ac85] Reasoning: This sentence mentions charities receiving nonmonetary benefits but lacks depth in explaining how this relates to the statutory context of class member settlements.
+  [ID: 632bbffd-2e43-4135-ae85-3958363cf5f6] Reasoning: The sentence describes a defendant obtaining a nonmonetary benefit to avoid prosecution, but it does not clarify its relevance to the statutory framework.
+  [ID: 3dc0052e-93e5-4349-9414-dc2056f7ccc5] Reasoning: This sentence provides context about nonmonetary benefits accruing to a new associate, but it does not connect this to the statutory requirement of weighing benefits against monetary loss.
+  [ID: 778e58d8-e3c0-473c-8eb6-e42869a514f5] Reasoning: This sentence discusses nonmonetary benefits in the context of employment income but does not relate it to the statutory framework regarding class member settlements.
+  [ID: 2468953a-05b9-4eb8-a70e-4a4035c26d8c] Reasoning: This sentence states that nonmonetary benefits are mandatory bargaining subjects, but it does not provide any interpretive context related to the statute in question.
+  [ID: 859203b7-7043-453a-8a93-716d4018746b] Reasoning: This sentence mentions the impact of changed qualifications on benefits but does not elaborate on how this relates to the statutory context of weighing benefits.
+  [ID: daec2723-df4f-449b-8105-23324dc0d1cf] Reasoning: This lengthy sentence lists various forms of compensation and benefits but does not provide any interpretive context or application related to the statute.
+  [ID: c0b9e338-a949-4454-b8c7-2bd0072cd322] Reasoning: This sentence discusses the hiring of an accountant to determine various financial matters, including nonmonetary benefits, but lacks direct relevance to the statutory context.
+  [ID: d6132088-2f85-405b-9df8-25725d9fdc05] Reasoning: This sentence states that New York will not receive nonmonetary benefits of a settlement, but it does not explain how this relates to the statutory requirement.
+  [ID: 7b739f25-ed4f-4384-b926-1072adf873f2] Reasoning: This sentence asserts that companionship does not constitute payment, but it does not provide any interpretive context related to the statute.
+  [ID: 1b7d9d0d-a7d2-4969-bc7b-d35a1d7f2db6] Reasoning: This sentence discusses companionship as a nonmonetary benefit but does not connect it to the statutory context of class member settlements.
+  [ID: 7b3049b2-1b40-42a2-a111-6f0729ebdfd2] Reasoning: This sentence raises a question about whether contributions to a pension fund include nonmonetary benefits but does not clarify its relevance to the statute.
+  [ID: 62165b0a-1495-410f-90f4-95c657c742b0] Reasoning: This sentence discusses the court's authority to approve agreements including nonmonetary benefits but does not provide specific interpretive context related to the statute.
+  [ID: cc76d9d5-5dd9-4634-bc74-c960bbf6bbb1] Reasoning: Similar to the previous sentence, this one mentions the court's authority regarding nonmonetary benefits but lacks depth in interpretation.
+  [ID: bf993f54-b180-4cb9-bb98-ff5e6aba18f8] Reasoning: This sentence discusses the purpose of obtaining nonmonetary benefits in relation to business activities but does not connect it to the statutory context.
+  [ID: 81ab74fd-1225-46d6-9639-ea516dee8089] Reasoning: This sentence indicates the intention to tax activities for nonmonetary benefits but does not provide clarity on its relevance to the statute.
+  [ID: 9e162522-0727-4c57-87d1-b3fb633e30dc] Reasoning: This sentence is a repeat of the previous one, providing no new information or context.
+  [ID: 33f63ab7-cba3-49e4-a5af-d8863e8eb7ea] Reasoning: This sentence discusses the broad interpretation of nonmonetary benefits but does not clarify its application to the statute.
+  [ID: 75859196-a587-4ae9-aa68-16b504074b8c] Reasoning: This sentence discusses the status of volunteers receiving nonmonetary benefits but does not connect it to the statutory context.
+  [ID: 5c6decbc-f163-440b-8c24-f455a460fb8c] Reasoning: This sentence discusses nonmonetary benefits in the context of assistance to homeowners but lacks relevance to the statutory framework.
+  [ID: cbae6686-3eee-45d1-9c07-0fbe28edd9c0] Reasoning: This sentence mentions nonmonetary benefits provided to defendants but does not clarify its relevance to the statute.
+  [ID: 6971a12a-c4d9-433e-b107-543964d0e072] Reasoning: This sentence discusses a claim of unjust enrichment for nonmonetary benefits but does not connect it to the statutory context of class member settlements.
+  [ID: 6ebf8733-b982-4695-b468-cbaa7f6b7169] Reasoning: This sentence suggests offsetting attorneys' fees against nonmonetary benefits but does not provide clarity on its relevance to the statute.
+  [ID: 4a84f504-b410-4914-9a6a-78a77125dac5] Reasoning: This sentence states that the policy does not suggest offsetting losses by nonmonetary benefits but lacks interpretive context related to the statute.
+  [ID: b2a53a30-a375-445a-916a-6034992c494d] Reasoning: This sentence discusses the conditions under which litigation can confer benefits but does not provide new interpretive context or application regarding 'nonmonetary benefits'.
+  [ID: 046a8079-56c5-4e2f-95de-a421e8cd36a2] Reasoning: This sentence mentions nonmonetary benefits in a general context of employee compensation but lacks specific legal interpretation or application.
+  [ID: 4086a4dd-9804-4658-bcfb-102142146e2d] Reasoning: This sentence provides an example of nonmonetary benefits achieved through court rulings, which adds some context to their significance in deterring employer misconduct.
+  [ID: 21d2a672-d9d7-4e58-a885-f94f8275fba7] Reasoning: This sentence states that a person received nonmonetary benefits but does not elaborate on their significance or context, providing minimal interpretive value.
+  [ID: 4b904160-1afd-4fcd-86b3-e688e197aee0] Reasoning: This sentence explains how nonmonetary benefits were received through a solicitation process, providing context on how such benefits can be perceived in a legal framework.
+  [ID: 0ba4da8a-a778-43f8-a158-be629b5f3956] Reasoning: This sentence discusses the court's stance on nonmonetary benefits in the context of collective bargaining, but it does not provide substantial interpretive depth.
+  [ID: b99801bd-32eb-4035-97bc-42bfd6843ff2] Reasoning: This sentence quantifies a nonmonetary benefit in terms of its estimated value, which adds some interpretive context regarding its significance in legal proceedings.
+  [ID: 8613c003-25a9-4c74-92a0-5969d4a9d429] Reasoning: This sentence discusses the substantial nonmonetary benefits received by Associations, providing context on the motivations behind settlement and its implications.
+  [ID: e0c4b68b-a56b-4b95-b312-c73833027c90] Reasoning: This sentence outlines the requirements for a prevailing party to qualify for an award, specifically mentioning nonmonetary benefits, which adds clarity to their legal significance.
+  [ID: 7b5a4d40-d57e-4879-9878-de87c1d5adaa] Reasoning: This sentence discusses nonmonetary benefits in the context of a specific group (homosexual aliens), providing a unique application that adds interpretive value.
+  [ID: 746a8153-dc69-434d-b191-fbc913636443] Reasoning: This sentence raises a question about the consideration of nonmonetary benefits in relation to bargaining proposals, hinting at their potential impact on negotiations.
+  [ID: 9d6eecd9-4a0c-4f78-b4e6-f86054b0a6c4] Reasoning: This sentence interprets the term 'any advantage' to include nonmonetary benefits, but it does not provide substantial new context or application.
+  [ID: a3d71615-967b-425a-8cac-ad12f8862324] Reasoning: This sentence discusses the tension between interpretations of nonmonetary benefits and fringe benefits, providing some interpretive context but lacking depth.
+  [ID: 267f863e-affd-49e9-adfb-187614270fd0] Reasoning: This sentence raises concerns about the real and substantial nature of nonmonetary benefits in a settlement context, hinting at their importance in class action evaluations.
+  [ID: f416d8b8-e3d5-43d1-a33d-9f44dc4cd09f] Reasoning: This sentence references case law regarding nonmonetary benefits in settlements, providing a legal precedent that adds interpretive value.
+  [ID: 14624990-733a-4b3d-9947-40a35e3a82b6] Reasoning: This sentence discusses the fairness of monetary and nonmonetary benefits in the context of legal recovery, providing some interpretive context.
+  [ID: d2d827b2-68dc-4cb4-82f9-5ff305c2ae00] Reasoning: This sentence outlines factors courts should consider regarding nonmonetary benefits in settlements, providing practical guidance for legal interpretation.
+  [ID: be128925-5ebe-4cd7-a65a-3047e3e18ca8] Reasoning: This sentence mentions the importance of nonmonetary benefits received by the class, but lacks depth in explaining their significance.
+  [ID: 485cb8bd-74aa-4c69-861a-bab9a320ed98] Reasoning: This sentence warns against illusory nonmonetary benefits in settlements, providing critical interpretive guidance on what constitutes a valid benefit.
+  [ID: b21ab7cb-3e07-4797-8280-1d398258af9a] Reasoning: This sentence emphasizes the importance of considering nonmonetary benefits in the context of public interest, providing significant interpretive guidance.
+  [ID: c6a9f7ac-b816-40c7-9500-e4855c9c8d58] Reasoning: This sentence raises a question about the nature of nonmonetary benefits in settled cases, hinting at potential legal ambiguities.
+  [ID: 687d1c7b-3cd7-4a21-b935-35fdd35f9fab] Reasoning: This sentence states that a family received nonmonetary benefits, but does not provide further context or significance, resulting in low interpretive value.
+  [ID: 90cdb7c2-8d0c-43f2-8e65-249e31e7ba22] Reasoning: This sentence requests a comprehensive list of nonmonetary benefits, indicating their importance in the legal context but lacking depth in analysis.
+  [ID: 846ba99d-eeef-4dfb-877f-d2785a72f41c] Reasoning: This sentence reiterates the conditions under which fee reimbursement is permitted, closely mirroring the statute without adding new interpretive context.
+  [ID: 91685d13-0a39-457f-8068-b50d45ed96be] Reasoning: This sentence mentions the examination of nonmonetary benefits alongside monetary benefits, but does not provide substantial new context or application.
+  [ID: e05e7548-fd7b-4ef5-955b-31b61169f56c] Reasoning: This sentence discusses a personal nonmonetary benefit in the context of an appeal but does not provide any interpretive context or application related to the phrase of interest.
+  [ID: 72306061-67c4-4434-9d20-5bee6ca4e7ad] Reasoning: This sentence is identical to the previous one and suffers from the same issues of redundancy without adding any new interpretive value.
+  [ID: e14a8f20-3c6d-48ce-910e-19fb275c9ba3] Reasoning: This sentence references case law regarding nonmonetary benefits in class actions, providing context on how courts have handled fee applications related to such benefits, which adds interpretive value.
+  [ID: 3269417f-bd77-4fc0-adf7-302f44f54da4] Reasoning: This sentence discusses a property exchange and mentions nonmonetary benefits but does not elaborate on their significance or application, limiting its interpretive value.
+  [ID: ef9a3753-08d3-4ddf-8262-cae27cde3877] Reasoning: This sentence indicates that the exchange was in the Borough's best interest based on nonmonetary benefits, but it lacks depth in explaining how these benefits were assessed or valued.
+  [ID: 8b546a80-ab76-4654-b6d7-7cff73640962] Reasoning: This sentence discusses the sanctioning of nonmonetary benefits to religious groups, providing context on how courts view such benefits, which adds interpretive value.
+  [ID: 8aa3d287-4f02-43f2-8665-9cdcadec11b7] Reasoning: This sentence mentions nonmonetary benefits in the context of an acquisition agreement but does not provide any substantive analysis or application, limiting its value.
+  [ID: 0020a465-f4b3-4703-b596-7b2b81214df3] Reasoning: This sentence critiques the Authority's ability to derive a test for nonmonetary benefits from a specific provision, indicating a lack of clarity in the law, which adds some interpretive value.
+  [ID: 25561077-5aa4-454c-818b-e7529a6a6bdd] Reasoning: This sentence discusses the origin of the substantial benefit rule in relation to nonmonetary benefits, providing historical context that aids interpretation.
+  [ID: 9fddacee-a6e5-44d7-8c35-67fd295cf528] Reasoning: This sentence explains the implications of nonmonetary benefits in employment contracts, providing a clear application that aids understanding.
+  [ID: 400c39f3-e02e-446d-b340-3a7dfe831359] Reasoning: This sentence discusses the derivative settlement and its reflection of nonmonetary benefits but lacks depth in explaining their significance.
+  [ID: b49e4c8e-ff2a-43df-ac90-d50010396443] Reasoning: This sentence indicates that the trial court will determine fees for nonmonetary benefits under a specific section, but it does not provide further context or application.
+  [ID: 4a086927-24bd-42ae-b3a2-89df7c3dba9d] Reasoning: This sentence states a specific fee awarded for nonmonetary benefits but lacks context or explanation of how this was determined.
+  [ID: 53d8e628-bd68-49f2-8503-9e12e447d668] Reasoning: This sentence argues against reducing fee awards for nonmonetary benefits, providing a rationale that adds interpretive value.
+  [ID: 4d4dd86f-3b8b-4922-8f5a-9dad9a1424b1] Reasoning: This sentence discusses the reasonableness of a fee in relation to nonmonetary benefits obtained, providing context that aids interpretation.
+  [ID: e0428dab-e174-434e-8840-8e3d01cb3ac2] Reasoning: This sentence outlines conditions under which nonmonetary benefits can be considered, providing clear criteria that aids interpretation.
+  [ID: 00b3c432-150f-4ac6-9ff8-6c609a6e67ad] Reasoning: This sentence discusses how courts may consider nonmonetary benefits obtained through attorney efforts, providing context that aids understanding.
+  [ID: 0eaa82c0-aca4-47f1-80e3-7fcb6b98f497] Reasoning: This sentence quantifies nonmonetary benefits obtained for the Humphryses, providing a specific example that aids interpretation.
+  [ID: fdcd05a4-06d1-4eeb-bb33-8aecf83d9bc7] Reasoning: This sentence discusses a judicial declaration regarding nonmonetary benefits, providing context that aids understanding of their legal implications.
+  [ID: 50b6d31d-7fcc-4724-842f-c89d912a620c] Reasoning: This sentence compares the value of nonmonetary benefits to attorneys' fees, but it lacks depth in explaining the implications of this comparison.
+  [ID: c8faa34a-38df-45fa-83d3-f5665efcebd8] Reasoning: This sentence argues that a settlement provided a nonmonetary benefit of vindicating taxpayers' rights, which adds interpretive value by explaining the significance of the benefit.
+  [ID: 295a3d50-f621-4178-a615-ac8989763bd7] Reasoning: This sentence discusses nonmonetary benefits in the context of a settlement requiring an election, providing specific application that aids interpretation.
+  [ID: 20bdd1ff-227d-431a-a0ed-e1b980d9595c] Reasoning: This sentence states that nonmonetary benefits were important to a settlement, providing context that aids understanding of their significance.
+  [ID: af0b244c-00ce-4e2b-9e5f-7ce107bbaee3] Reasoning: This sentence discusses incidental nonmonetary benefits in the context of a public facility operation, providing context that aids interpretation.
+  [ID: c8963a33-238e-4d91-a2f8-541a1ca1dfee] Reasoning: This sentence reiterates the statute regarding nonmonetary benefits without adding any new interpretive context, making it redundant.
+  [ID: e4c8dd2f-8323-44b8-a7c1-3339d3c27f1d] Reasoning: This sentence discusses a specific case regarding whether a variance is a nonmonetary benefit, but it does not provide broader interpretive context or application of the term beyond the case itself.
+  [ID: 34b793f0-0ff6-47fd-b2b9-df71f4dca0cc] Reasoning: This sentence affirms a trial court's decision that a variance is a nonmonetary benefit, but it does not elaborate on the implications or reasoning behind this classification.
+  [ID: 6e8c14ec-a1b5-4f1e-9ca0-57cf4c04de4a] Reasoning: This sentence notes that the trial court's finding regarding the nonmonetary benefit was not contested on appeal, providing no new interpretive insight.
+  [ID: 153b1806-f8cd-45ce-b9e8-95b407ac65ff] Reasoning: This sentence explains that the court can consider nonmonetary benefits obtained for the client, adding some interpretive context about how these benefits should be identified and quantified.
+  [ID: 20e02a25-80b1-4f87-92e3-f7ac1f84b47a] Reasoning: This sentence describes a specific case where nonmonetary benefits were identified and quantified, providing a concrete example of how these benefits are recognized in practice.
+  [ID: c3bc8160-d92a-4376-a54a-da84bb4695fe] Reasoning: This sentence clarifies that not all variances are considered nonmonetary benefits, which adds a layer of nuance to the interpretation of the term.
+  [ID: eac39c86-bbe6-4e3e-95f1-41c2dc9af298] Reasoning: This sentence speculates on legislative intent regarding nonmonetary benefits, but it does not provide concrete interpretive guidance or application.
+  [ID: 4016c796-f173-4bfd-bf6f-0461aa52fcf2] Reasoning: This sentence rejects an argument regarding the classification of a variance as a nonmonetary benefit, but it does not provide further interpretive context.
+  [ID: 96e6d586-d2f9-44ef-b99d-f733009d8ce7] Reasoning: This sentence discusses the rejection of an argument about the variance as a nonmonetary benefit, but it lacks depth in interpretive analysis.
+  [ID: 2439eb1e-3bee-422e-b631-d8edec12fc67] Reasoning: This sentence states there is no authority to support a specific argument about nonmonetary benefits, but it does not clarify the implications or provide interpretive depth.
+  [ID: f6b0ecab-dda6-4baa-9d96-9af668c64bd2] Reasoning: This sentence indicates that the trial court found no benefits under the statute, but it does not provide further interpretive context.
+  [ID: dc507011-b79f-4261-8a3a-12c5356f96a9] Reasoning: This sentence states that the right to fees for nonmonetary benefits is not fundamental, but it does not elaborate on the implications of this statement.
+  [ID: 89c39b51-7cc8-4107-8714-4e78e8e68dfd] Reasoning: This sentence compares the statute to a federal statute, but it does not provide substantive interpretive value regarding nonmonetary benefits.
+  [ID: c7a0848e-e374-4700-987c-9599e531b622] Reasoning: This sentence discusses the inability to determine if nonmonetary benefits constituted wages, but it lacks interpretive depth or application.
+  [ID: d3f6a9a7-7cfa-4774-bd5b-0b4e825ade61] Reasoning: This sentence references a case that clarifies the necessity of a nonmonetary benefit for a litigant, providing some interpretive guidance.
+  [ID: fe9c49a7-3d66-480c-ae83-4e5ed1ee085c] Reasoning: This sentence describes a specific nonmonetary benefit received by a retirement system, providing a concrete example of how such benefits can be recognized.
+  [ID: 6c70f316-1751-436b-ae12-91493dd2a876] Reasoning: This sentence suggests that a nonmonetary benefit could include a new hearing, which adds a potential application of the term.
+  [ID: 201969d9-6d3a-4d90-a694-9731984b855f] Reasoning: This sentence reiterates that a benefit can include a nonmonetary benefit, but it does not provide new interpretive context or application.
+  [ID: 2e559a93-9da4-4980-91fd-03d3e43c1420] Reasoning: This sentence compares two cases regarding nonmonetary benefits, providing some interpretive context about how these benefits can vary in significance.
+  [ID: 32229dfa-fb2f-4186-bccc-dada618ecd4d] Reasoning: This sentence discusses incidental nonmonetary benefits but does not provide substantial interpretive value regarding the term itself.
+  [ID: ddc439b1-3919-422c-b1c3-b84fd2489c86] Reasoning: This sentence discusses a breach of fiduciary duty and its impact on calculating lost profits, but it does not provide new insights into nonmonetary benefits.
+  [ID: ac24c55b-72cb-4468-9f3d-5be15fb54ee5] Reasoning: This sentence states that an expert must be qualified to testify about nonmonetary benefits, but it does not provide further interpretive context.
+  [ID: 059cea2d-f2bf-4fda-84ac-8f833478be1c] Reasoning: This sentence discusses testimony about nonmonetary benefits received from participation in an event, but it does not provide broader interpretive context.
+  [ID: fa3bc00e-9780-4e7b-926f-30f1ba2d85c5] Reasoning: This sentence states that testimony on nonmonetary benefits was deemed irrelevant, providing no new interpretive insight.
+  [ID: 30309838-edf4-4b72-b63d-7855d6a8b273] Reasoning: This sentence notes the impact of changed qualifications on monetary and nonmonetary benefits, but it does not provide substantial interpretive value.
+  [ID: f5c44258-8b0c-411c-a6ac-12e9d6814de8] Reasoning: This sentence states that both sides submitted conflicting evidence on nonmonetary benefits but does not provide any interpretive context or application.
+  [ID: 64378f20-b4f9-4319-a170-a770dd90104a] Reasoning: This sentence explains the conditions under which nonmonetary benefits may be awarded, adding clarity to the statutory language regarding quantification and identification.
+  [ID: a9b849ad-0950-4551-83ba-badd2769f61d] Reasoning: This sentence affirms the trial court's decision regarding nonmonetary benefits but does not provide new interpretive insights or applications.
+  [ID: 3b3895f4-4e95-4915-9b28-8fc8a2cc4b2f] Reasoning: This sentence reiterates the court's ability to consider nonmonetary benefits but does not add any new information or context.
+  [ID: 428c5d56-27b9-4379-a04c-f31ab16cc9b3] Reasoning: This sentence provides a specific example of nonmonetary benefits received, which helps illustrate the concept in a practical context.
+  [ID: fddf4b7d-5ff6-417e-9903-09bb1a6463fe] Reasoning: This sentence discusses the consideration of complexity and skill in determining nonmonetary benefits, providing interpretive context.
+  [ID: d37e104f-5d43-49e4-8b47-dc7435789ea9] Reasoning: This sentence confirms the court's conclusion regarding the value of nonmonetary benefits, but it does not add new interpretive insights.
+  [ID: da90708a-1393-4dfb-8655-02d7f598e211] Reasoning: This sentence mentions unquantifiable nonmonetary benefits, adding depth to the understanding of what constitutes such benefits.
+  [ID: 0c4326de-e80e-4cd4-9ed9-004740f2d245] Reasoning: This sentence presents a counterargument regarding nonmonetary benefits, which adds a layer of complexity to the discussion.
+  [ID: cc7769ee-012c-4aad-9b55-624f9133d904] Reasoning: This sentence discusses the rejection of computations related to nonmonetary benefits, providing insight into the court's reasoning.
+  [ID: 66248fd1-8f84-4b8d-af15-8a1cf12410e0] Reasoning: This sentence outlines arguments regarding attorney's fees and nonmonetary benefits, but it does not provide new interpretive insights.
+  [ID: 553c7421-cecc-48a2-8e6c-e41e976ae975] Reasoning: This sentence disputes the amount of nonmonetary benefits received, but it does not add new interpretive context.
+  [ID: 424ec1d6-cb29-4931-815c-55811869a4db] Reasoning: This sentence repeats the statutory language regarding nonmonetary benefits without adding new interpretive value.
+  [ID: dcf53a97-25e1-4ec7-9eea-5d3d161d0eda] Reasoning: This sentence defines 'contingency fee' and includes nonmonetary benefits, but it does not provide specific interpretive context related to the phrase of interest.
+  [ID: f4daa36d-06fe-4a43-98ca-e3ca7f904a27] Reasoning: This sentence discusses a legal dispute regarding the interpretation of 'gross receipts' and nonmonetary benefits, providing context for their application.
+  [ID: 88e4d6f3-218f-44b5-9a05-6de6fba5d4f2] Reasoning: This sentence addresses the ambiguity of 'gross receipts' and its relation to nonmonetary benefits, adding interpretive depth.
+  [ID: 9eff52bb-fa1a-4ad4-b692-59e75040de83] Reasoning: This sentence discusses the rejection of a claim regarding nonmonetary benefits, providing insight into the court's reasoning.
+  [ID: ad53db69-72cc-4355-aa22-a4ac4c21b72b] Reasoning: This sentence repeats the statutory language regarding nonmonetary benefits without adding new interpretive value.
+  [ID: 12de6a99-50e6-4560-8873-df315b571512] Reasoning: This sentence outlines errors in the award of fees related to nonmonetary benefits, providing context for their application in a specific case.
+  [ID: e0f35f5a-4967-4dc2-8f8c-2b45869dde4d] Reasoning: This sentence discusses the reversal of a fee award based on nonmonetary benefits, providing insight into the court's reasoning.
+  [ID: de843b55-6342-4cc2-8f1e-087a9cc08a2d] Reasoning: This sentence discusses the presentation of evidence regarding nonmonetary benefits, adding context to their quantification.
+  [ID: fa32c5c4-4cbc-4cf1-a31d-a2de704c07f4] Reasoning: This sentence discusses the trial court's conclusion regarding nonmonetary benefits and the entitlement of attorneys, providing context for their application.
+  [ID: 0c42960e-b8ed-45b1-8907-feb6eb094239] Reasoning: This sentence discusses the trial court's conclusion regarding the total value of nonmonetary benefits, providing specific quantification.
+  [ID: f34ca120-1a0c-4e2a-a450-9910ba0db8bd] Reasoning: This sentence discusses the reversal of a fee award based on nonmonetary benefits, providing insight into the court's reasoning.
+  [ID: b55cfdc4-e2e6-444d-9bc5-fdb58d3050fa] Reasoning: This sentence discusses the role of expert witnesses in quantifying nonmonetary benefits, adding context to their application.
 Method: probabilities | Term: nonmonetary benefits
-NDCG@10: 0.5758393816708857
-NDCG@20: 0.5515244596791289
-NDCG@40: 0.592575820197996
-NDCG@100: 0.7401109904289241
+NDCG@10: 0.6374582308857772
+NDCG@20: 0.6098124094853227
+NDCG@40: 0.6434227077313007
+NDCG@100: 0.7734453107219221
 
 ----------------------------------------
 STDERR:
@@ -133,11 +251,13 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/9 [00:00<?, ?batch/s]
-GPT batches:  11%|█         | 1/9 [00:06<00:55,  6.99s/batch]
-GPT batches:  22%|██▏       | 2/9 [00:21<01:18, 11.20s/batch]
-GPT batches:  33%|███▎      | 3/9 [00:23<00:42,  7.05s/batch]
-GPT batches:  44%|████▍     | 4/9 [00:24<00:23,  4.67s/batch]
-GPT batches:  56%|█████▌    | 5/9 [00:25<00:13,  3.32s/batch]
-GPT batches:  78%|███████▊  | 7/9 [00:28<00:04,  2.39s/batch]
-GPT batches: 100%|██████████| 9/9 [00:28<00:00,  1.41s/batch]
-GPT batches: 100%|██████████| 9/9 [00:28<00:00,  3.14s/batch]
+GPT batches:  11%|█         | 1/9 [00:10<01:25, 10.71s/batch]
+GPT batches:  22%|██▏       | 2/9 [00:38<02:23, 20.56s/batch]
+GPT batches:  33%|███▎      | 3/9 [00:43<01:22, 13.68s/batch]
+GPT batches:  44%|████▍     | 4/9 [00:46<00:46,  9.33s/batch]
+GPT batches:  56%|█████▌    | 5/9 [00:47<00:25,  6.42s/batch]
+GPT batches:  67%|██████▋   | 6/9 [00:47<00:13,  4.38s/batch]
+GPT batches:  78%|███████▊  | 7/9 [00:48<00:06,  3.03s/batch]
+GPT batches:  89%|████████▉ | 8/9 [00:48<00:02,  2.23s/batch]
+GPT batches: 100%|██████████| 9/9 [00:52<00:00,  2.72s/batch]
+GPT batches: 100%|██████████| 9/9 [00:52<00:00,  5.84s/batch]

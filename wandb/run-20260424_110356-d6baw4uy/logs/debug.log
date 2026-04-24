@@ -1,0 +1,10 @@
+2026-04-24 11:03:56,719 INFO    MainThread:27104 [wandb_init.py:setup_run_log_directory():713] Logging user logs to /Users/alvinwang/cs/Retrieval/Retrieval/wandb/run-20260424_110356-d6baw4uy/logs/debug.log
+2026-04-24 11:03:56,720 INFO    MainThread:27104 [wandb_init.py:setup_run_log_directory():714] Logging internal logs to /Users/alvinwang/cs/Retrieval/Retrieval/wandb/run-20260424_110356-d6baw4uy/logs/debug-internal.log
+2026-04-24 11:03:56,720 INFO    MainThread:27104 [wandb_init.py:init():840] calling init triggers
+2026-04-24 11:03:56,725 INFO    MainThread:27104 [wandb_init.py:init():845] wandb.init called with sweep_config: {}
+config: {'term': 'essential step', 'type': 'probabilities', 'num_sentences': 2374, 'label_map': {'no value': 0, 'potential value': 1, 'certain value': 2, 'high value': 3}, 'label_counts': {'distribution': 2374}, 'confusion': gpt_label_str  distribution
+label_score                
+0.0                    2226
+1.0                      73
+2.0                      40
+3.0                      35, '_wandb': {}}

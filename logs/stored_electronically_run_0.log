@@ -1,131 +1,284 @@
 Command: /opt/anaconda3/bin/python rank.py --term stored electronically --type probabilities --sentences sources/stored_electronically/stored_electronically-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: b35a031b-baa0-4d2e-ae76-8dbc4e01d30e] Reasoning: This sentence discusses the burden on Reeordex regarding records stored electronically but does not provide any new interpretive context or application of the term beyond its mention.
+  [ID: 78dc6a78-54f8-449d-9f25-230f4aabc9bb] Reasoning: This sentence mentions contracts related to records stored electronically but does not elaborate on the implications or legal interpretations of that term.
+  [ID: f575db32-0a4f-4592-80c8-e7630d38525e] Reasoning: This sentence raises a question about contracts related to records stored electronically but does not provide any interpretive context or resolution.
+  [ID: 3c555fda-0ec3-4311-ba37-de1c09fc9fd6] Reasoning: This sentence describes various forms of records stored electronically but does not add any interpretive value or context to the term.
+  [ID: fa2a5b0d-6934-4ec0-843e-d14d7d328147] Reasoning: This sentence mentions access to documents stored electronically in the context of monitoring compliance but does not provide deeper interpretive insights.
+  [ID: e8e018df-04ff-4827-a32b-63ed205cac52] Reasoning: This sentence simply states that a person was not asked about whether a file was stored electronically, providing no interpretive context.
+  [ID: 9f7ff4b8-0e87-4863-aa21-360818b1b58d] Reasoning: This sentence applies the concept of records stored electronically to a specific legal requirement, providing a clear application of the term in a legal context.
+  [ID: 9f37c0ad-de9e-4d0b-b7a0-7c12be4ef7b5] Reasoning: This sentence discusses a specific case (A.T.) but does not provide any new interpretive context regarding the phrase 'stored electronically'.
+  [ID: a7ee4900-b8fc-4c99-86f1-702aa0919545] Reasoning: While it mentions 'stored electronically', it primarily focuses on metadata and does not directly explain the implications of the phrase in a legal context.
+  [ID: 629daf98-a63a-4dbf-abb3-9e18fdb9f953] Reasoning: This sentence discusses the accuracy of data stored electronically but does not provide new legal insights or applications related to the phrase.
+  [ID: 7e5e0d73-76c5-43b6-a8da-b27a3b33cb31] Reasoning: This sentence addresses the permanence of data stored electronically but lacks interpretive depth regarding legal implications.
+  [ID: 5c32e1e1-d906-4c14-9db3-6ec9ea54e643] Reasoning: This sentence discusses the alteration of data stored electronically but does not provide new legal context or applications.
+  [ID: 7fdc4dfa-365e-4010-b0a0-8eb1004bf1ea] Reasoning: This sentence states that data stored electronically is not physical, but it does not add any legal interpretation or context.
+  [ID: a7fdd0fb-ab59-45ab-ac56-7bdee86881b5] Reasoning: This sentence outlines requirements for electronic records but does not clarify the phrase 'stored electronically' in a meaningful way.
+  [ID: d7657f27-62bd-4434-99ee-793cbdbd850a] Reasoning: This sentence describes reproduction of records stored electronically but does not provide new legal insights or applications.
+  [ID: 535a2c69-acf2-41db-92a5-13aa416b2530] Reasoning: This sentence states that information is stored electronically but does not provide any new interpretive context.
+  [ID: 8a0b15b6-d4d2-4524-8e1a-b73eaa401964] Reasoning: This sentence discusses the need for new software to retrieve records stored electronically but lacks deeper legal interpretation.
+  [ID: b7359fc0-1da0-4ca0-9704-39c94a0e00fd] Reasoning: This sentence explains reproduction of records but does not add significant interpretive value regarding the phrase 'stored electronically'.
+  [ID: 60aaea22-ea04-4965-9789-3f5489da5ffb] Reasoning: This sentence describes how information is stored electronically on value-based cards but does not provide legal context or implications.
+  [ID: e6e46595-4ce8-4f81-9109-1c21a429426f] Reasoning: This sentence characterizes source code as a document stored electronically but does not provide new legal insights.
+  [ID: f32e29a4-1787-4f31-931b-6dd6f1a13614] Reasoning: This sentence repeats information about data stored electronically without adding new interpretive context.
+  [ID: a5b56d62-22ac-4d20-a087-acecc0eb23ef] Reasoning: This sentence repeats the need for new software to retrieve records stored electronically, lacking deeper legal interpretation.
+  [ID: cb733e24-cfbd-4eb8-b2b9-4c6ee406ad5e] Reasoning: This sentence discusses a specific case involving photographs stored electronically but does not provide broader legal implications.
+  [ID: b0dff203-c811-4982-8f52-8a29709754de] Reasoning: This sentence outlines requirements for establishing the authenticity of electronic records but does not clarify the phrase 'stored electronically' in a meaningful way.
+  [ID: 3357651c-b0ee-4a40-a254-32c2289f659b] Reasoning: This sentence describes evidence sought via a search warrant involving digital images stored electronically but lacks deeper legal interpretation.
+  [ID: dd9e6d2d-5ff1-4fff-8402-36a606b1139d] Reasoning: This sentence states that information is often stored electronically but does not provide any new interpretive context.
+  [ID: 0703f4cc-447a-49f3-b58a-2e8f16daf979] Reasoning: This sentence discusses the trend of storing information electronically but does not provide legal context or implications.
+  [ID: ae627131-5ee6-44c7-a8a0-f26a5813477f] Reasoning: This sentence defines a 'record' as information stored electronically but does not provide new legal insights or applications.
+  [ID: b58adb0b-9667-4758-9c78-96eb24a645ab] Reasoning: This sentence cites case law regarding electronic communications stored electronically but does not clarify the phrase in a meaningful way.
+  [ID: 585dd4fa-e2ce-4ca4-9967-db89994903c0] Reasoning: This sentence describes a transaction involving electronic checks but does not provide new legal context regarding 'stored electronically'.
+  [ID: b5816038-463d-4410-81cc-fb2ef897c4c8] Reasoning: This sentence discusses a company policy regarding copies of records stored electronically but lacks deeper legal interpretation.
+  [ID: ed728d4d-bee7-4b03-8aeb-55606ff1c3f1] Reasoning: This sentence discusses a class action complaint related to medical records stored electronically but does not provide broader legal implications.
+  [ID: 538a7fce-3f49-48b5-bb68-ad42ed9d0efd] Reasoning: This sentence discusses a request for documents that includes those stored electronically but does not provide any interpretive context or application of the term.
+  [ID: acd1ab6b-2f50-4bed-bae6-8e8b0b928b77] Reasoning: Mentions a database created to identify documents stored electronically, but lacks deeper analysis or application of the term.
+  [ID: 4e406f9a-43c4-4f4b-ba4f-a68f4b301619] Reasoning: Cites case law regarding the access of information stored electronically, providing context for legal interpretation but primarily quoting cases.
+  [ID: 3d33dca7-7394-4538-87e7-8935bde9504d] Reasoning: Directs the production of documents stored electronically but does not add interpretive value or context.
+  [ID: 7a26d6f3-9bbd-46df-98f5-2ad9c8542133] Reasoning: Describes the use of an electronic system for data storage but does not provide additional interpretive context.
+  [ID: e739e932-1582-44a8-8c93-9bbfa6fb09e8] Reasoning: Discusses the inclusion of electronically stored data in business records but does not elaborate on its legal implications.
+  [ID: 15975a5a-b526-4900-a135-553cc7f1ffcc] Reasoning: Specifies that records stored electronically should be produced in native format, providing some procedural context.
+  [ID: ee29deed-4458-4894-9868-01b322c85579] Reasoning: Mentions producing a forensic duplicate of electronically stored documents, which adds some procedural context.
+  [ID: 4ef12cb8-58bf-4990-b18d-38b901a84b0b] Reasoning: Discusses guidelines for the review of electronically stored data, providing some interpretive context regarding data management.
+  [ID: a0b4f64d-e81e-42dc-9838-d2c33688f7cb] Reasoning: Orders the production of relevant information stored electronically, but lacks deeper interpretive context.
+  [ID: 20af85b0-d8dc-4a8e-bab3-cbdd18ff8172] Reasoning: Discusses the neutrality of electronically stored source code, providing some interpretive context regarding its transportability.
+  [ID: 3145d991-4f2e-4135-8e5e-33615938029b] Reasoning: Cites a case regarding business records stored electronically, but primarily quotes the statute without adding significant interpretive value.
+  [ID: 34535710-1f1e-4489-b4a9-85468813dc97] Reasoning: Mentions the protection of electronically stored information but does not provide significant interpretive context.
+  [ID: f072f22b-6013-4601-8f4f-e298875b6305] Reasoning: Discusses a trial court's statement about documents stored electronically but does not provide additional interpretive context.
+  [ID: c3a30504-f976-4f29-b5cf-a261f0f3e657] Reasoning: Mentions the importance of considering where electronic information is stored but lacks depth in its analysis.
+  [ID: 3d914518-ccda-42ed-9e4d-9c443295e74d] Reasoning: Instructs on the preservation of electronically stored information but does not provide significant interpretive context.
+  [ID: 017aa34d-538a-494c-b850-14ad255544ad] Reasoning: Cites a business record definition but primarily repeats statutory language without adding interpretive value.
+  [ID: ec580bed-5044-4c4a-9798-d3876ff41b0b] Reasoning: Discusses the accessibility of electronically stored evidence but does not provide significant interpretive context.
+  [ID: 636874a9-12c8-4013-9c01-4af42bec82aa] Reasoning: Mentions that electronically stored evidence can be accessed remotely, but lacks deeper interpretive context.
+  [ID: 3a618bab-76f6-47cd-b718-c62311aa4c66] Reasoning: Describes surveillance recordings stored electronically but does not provide significant interpretive context.
+  [ID: 2c2c77bf-46a8-4e15-a70c-b27b7b4ed40b] Reasoning: Mentions the inability to retain documents that could have been stored electronically but lacks depth in analysis.
+  [ID: 50142c8e-9873-4989-9ea5-9fa43f88a77c] Reasoning: Indicates that documents could have been stored electronically but does not provide significant interpretive context.
+  [ID: 89fa00d4-c875-43b0-825c-b78dff6e7849] Reasoning: Discusses the Advisory Committee's contemplation of data stored electronically but primarily repeats statutory language.
+  [ID: 646ac6a5-0a15-454d-b359-a828f1158d24] Reasoning: Mentions that manifests can be stored electronically but does not provide significant interpretive context.
+  [ID: 4326c2fd-493a-4b0a-8522-b00b63a6a53d] Reasoning: Describes the documentation of locate operations but primarily repeats statutory language without adding interpretive value.
+  [ID: 6e7d7307-1447-4211-af3f-21fd7d3b03ac] Reasoning: This sentence merely repeats the concept of records being stored electronically without providing any additional context or application.
+  [ID: ce6d1bf3-8f03-4f8c-9d47-6afbbdca261b] Reasoning: This sentence provides context by describing a specific application of electronically stored information in the context of a county's website and document management, adding interpretive value.
+  [ID: 5a3c1fd7-4eb3-43bd-aa63-728996839d80] Reasoning: This sentence states a general principle about the equivalence of electronically stored information and paper records, but lacks depth or specific application.
+  [ID: 0907d85c-4667-4deb-a417-09e765a19619] Reasoning: This sentence provides specific context regarding the information sought and its electronic storage, indicating its relevance and accessibility, which adds interpretive value.
+  [ID: 1409a0e1-2262-4e00-a051-77c8680e6fc1] Reasoning: This sentence discusses the implications of fees for accessing electronically stored information, highlighting a legal principle regarding access rights, which adds significant interpretive value.
+  [ID: 182b8853-82f3-47a9-a3e4-a768808f9fbb] Reasoning: This sentence references a case discussing the complexities of searching electronically stored data, providing critical interpretive guidance on legal standards, which is highly valuable.
+  [ID: 75f48be4-7d5e-4633-827f-31aecc213983] Reasoning: This sentence describes a specific instance of electronically stored information being misappropriated, providing context that enhances understanding of legal implications.
+  [ID: b4c80461-25e3-4ee6-91f3-447ca85bc7fe] Reasoning: This sentence provides context about the production of reports stored electronically, which adds interpretive value regarding the handling of such records.
+  [ID: 242dbf6b-b8a4-47bf-9188-70710f1fe7be] Reasoning: This sentence states that electronically stored business records are not treated differently from paper records, but lacks depth or specific application.
+  [ID: a4287e0c-1bd8-4883-a487-502d9d4455ac] Reasoning: This sentence outlines the conditions under which electronically stored business records are admissible, providing clear interpretive guidance and context.
+  [ID: 4a716a27-2ca4-481a-81ad-a0194599165a] Reasoning: This sentence is a direct quote of the previous sentence regarding admissibility of electronically stored records, providing no new information.
+  [ID: 46e0e7f7-1f1f-46a0-90d0-6829b939ce5d] Reasoning: This sentence discusses the evolving legal challenges related to electronically stored records, providing critical interpretive context and guidance.
+  [ID: 6248bdbe-a87f-4020-b3ce-9476cc14346e] Reasoning: This sentence discusses the relevance of documents that could be found elsewhere, but does not add significant interpretive value regarding electronically stored information.
+  [ID: fa9cec99-b894-44ac-9fa7-bb9b1b4f94e3] Reasoning: This sentence discusses the prevalence of electronically stored information and its implications for public access, providing valuable interpretive context.
+  [ID: c8502a19-7a7e-49f1-8535-9dbb338f3cb2] Reasoning: This sentence states a simple fact about records being stored electronically without providing additional context or application.
+  [ID: 81a292a8-fd2e-4551-9fba-ca000e8ab16b] Reasoning: This sentence discusses the retention status of electronically stored information, providing relevant context but lacking depth.
+  [ID: 8f5fd9e5-ee3a-404a-94a1-d1d8f06bfd99] Reasoning: This sentence is a direct quote of a statute regarding possession of electronically stored depictions, providing no new interpretive value.
+  [ID: a6124f09-432e-4274-9924-f165d4712d3f] Reasoning: This sentence is a direct quote of a statute regarding possession of electronically stored depictions, providing no new interpretive value.
+  [ID: 580ab064-ff8c-4e3d-b9f1-ce4f1ddee784] Reasoning: This sentence is a direct quote of a statute regarding possession of electronically stored depictions, providing no new interpretive value.
+  [ID: bacb1bdb-8968-4478-8c83-0900b8431355] Reasoning: This sentence discusses the inspection of a digital photograph stored electronically, providing context about legal standards for searches, which adds interpretive value.
+  [ID: 6221b7cc-1b91-44f4-a3c7-2e319cfb43cd] Reasoning: This sentence describes the process of entering information at a traffic stop and its electronic storage, providing context that enhances understanding of practical applications.
+  [ID: 216f7be1-693e-492b-82b8-318280f80d8f] Reasoning: This sentence discusses the execution of a search warrant for items including electronically stored information, providing relevant context about legal procedures.
+  [ID: 7b490884-82b7-4d44-b276-0386ceaf4312] Reasoning: This sentence raises a legal question about the existence of electronically stored material before a search, providing interpretive context regarding legal standards.
+  [ID: 717b7255-9e60-47d8-a91b-302de5c12a00] Reasoning: This sentence requests information stored electronically related to a dispatch call, providing context about the handling of such information in legal proceedings.
+  [ID: ec452ce7-dca8-4cfa-9239-3736237be5d1] Reasoning: This sentence discusses the requirement to protect confidential medical records stored electronically, providing relevant context about legal obligations.
+  [ID: b57cdafe-674b-460a-8bd3-003d4d668464] Reasoning: This sentence quotes the advisory committee's note on Rule 34(a) without adding any interpretive context or application, making it redundant.
+  [ID: 9556fb7e-efed-4ecc-bcae-c56fe781fea7] Reasoning: This sentence describes security measures for documents stored electronically but does not provide any interpretive context or legal application related to the phrase of interest.
+  [ID: 7faca312-42af-4b49-8880-3bd7d6179e11] Reasoning: This sentence discusses a good faith defense related to compliance with law enforcement requests for information stored electronically, providing some legal context.
+  [ID: 705aa851-e02a-49c0-ba37-f28b4399c272] Reasoning: This sentence identifies specific internal websites and emails as locations for storing records electronically, which adds context to the application of the term.
+  [ID: 70cc67b3-b0df-4c7e-a56e-cf6edcbd238c] Reasoning: This sentence mentions shared network drives and laptops as locations for storing records electronically, but lacks deeper interpretive context.
+  [ID: 10f40009-5f76-4c80-b57b-5d7d1cd9e800] Reasoning: This sentence lists various types of confidential information that may be stored electronically, but does not provide significant interpretive context.
+  [ID: 88088247-3210-458b-b2f9-8d4e8aae61c7] Reasoning: This sentence discusses the historical context of data storage but does not provide relevant legal interpretation or application.
+  [ID: 77683521-989b-48ea-90a0-94b613be0b3e] Reasoning: This sentence mentions billing for tasks related to storing electronically filed documents but lacks substantive interpretive value.
+  [ID: 8d6b04b5-b11e-419e-b641-e8bdfaa9b303] Reasoning: This sentence makes a broad statement about anything that can be stored electronically, lacking specificity or legal context.
+  [ID: 11503b91-8e64-427c-a930-bb2b3db7d281] Reasoning: This sentence discusses the issuance of Grand Jury subpoenas for documents stored electronically, providing relevant legal context.
+  [ID: fe935ccb-abca-4770-b912-db5ff7aa144c] Reasoning: This sentence describes types of visual representations stored electronically but does not provide significant interpretive context.
+  [ID: 9c4f8493-1015-4a89-bfa7-6597539a4472] Reasoning: This sentence discusses the knowledge requirement for distributing harmful material stored electronically but lacks deeper interpretive context.
+  [ID: 870902f7-94d8-4ca3-b19c-9e318d7bc69c] Reasoning: This sentence mentions the ability to digitally record videophone conversations stored electronically but does not provide significant legal context.
+  [ID: 77ca3d74-289b-4f33-af16-37f30fdfc48b] Reasoning: This sentence describes actions taken under a court order related to data stored electronically, providing some legal context.
+  [ID: 6e1473eb-8e72-4af3-a7cc-3d2acb61a413] Reasoning: This sentence discusses the prevalence of storing past events electronically but lacks specific legal application or context.
+  [ID: fdac0950-fb9f-4d64-b178-5f791bb62b3b] Reasoning: This sentence describes how messages are stored electronically but does not provide significant interpretive context.
+  [ID: 2be15f9b-3445-42a1-bfca-6437922b9286] Reasoning: This sentence repeats the earlier mention of visual representations stored electronically without adding new interpretive value.
+  [ID: 8d9aca51-0cd0-4b45-b101-420f7a6df93d] Reasoning: This sentence is a repeat of the previous one regarding visual representations stored electronically, providing no new information.
+  [ID: bbf20293-4117-4bf7-a420-59d3b0ad1249] Reasoning: This sentence is another repetition of the earlier mention of visual representations stored electronically, lacking new interpretive value.
+  [ID: a6ce5677-8745-44f9-8370-e917afb7afe5] Reasoning: This sentence repeats the earlier mention of motion pictures stored electronically without adding new interpretive context.
+  [ID: 2ac3a3be-9811-44d6-802c-1491e72fb1fb] Reasoning: This sentence contrasts Section 2802 with electronic communications, providing some legal context regarding the phrase of interest.
+  [ID: d8c1e47c-5160-45ff-a717-05b14646f427] Reasoning: This sentence discusses the use of a computer program for data stored electronically, but lacks significant interpretive context.
+  [ID: 991c91e8-c7d2-4584-b186-e741ce65cbaf] Reasoning: This sentence discusses the importance of spoliation in the context of information stored electronically, providing relevant legal context.
+  [ID: 0197995e-2bdc-43b4-bf78-1d25fb2d3ab7] Reasoning: This sentence discusses restrictions on the use of a registry that may not be stored electronically, but lacks significant interpretive context.
+  [ID: 73f71f72-3f90-4fe1-859a-df8e9fe38a49] Reasoning: This sentence mentions the review of potentially privileged data stored electronically but does not provide significant interpretive context.
+  [ID: 47f163d5-c7ba-49be-934a-27fadaaa2520] Reasoning: This sentence discusses the concept of expungement in relation to records stored electronically but does not provide new interpretive context or application beyond the statutory definition.
+  [ID: 94f9613d-c972-45c6-b167-32480d6363fc] Reasoning: This sentence illustrates a practical issue regarding access to electronically stored records, but it does not delve into legal implications or interpretations.
+  [ID: 3e5d91aa-d5da-42f6-bfe7-da42fdb41638] Reasoning: This sentence describes a practice of dictating results that are stored electronically, but it lacks deeper legal analysis or implications.
+  [ID: 66001d6f-48b8-478c-8542-de028008a04f] Reasoning: This sentence is a paraphrase of the previous one and does not add any new information or context.
+  [ID: 86a793e1-4941-4a8e-a3b6-b9430e99ade9] Reasoning: This sentence provides a relevant legal principle regarding the treatment of electronically stored data in evidentiary contexts, adding interpretive value.
+  [ID: bbbfa4cd-5de3-429d-b12d-ca7c1d7fc6f8] Reasoning: Similar to the previous sentence, this one reiterates the same principle without adding new context or depth.
+  [ID: d6c674f8-6f4d-4d35-bc58-a8c7dc4638f9] Reasoning: This sentence describes a transition from hardcopy to electronic storage but does not provide legal context or implications.
+  [ID: 5bc8f657-9943-4dbd-b105-b79bd02e7778] Reasoning: This sentence discusses a specific legal provision regarding the electronic storage of documents, providing context for its application.
+  [ID: d1476770-035b-4327-a148-8eb8f3c7b2fc] Reasoning: This sentence raises a question about the definition of an original document when stored electronically, indicating a legal ambiguity.
+  [ID: ab646ed1-66df-4ec7-a770-57abe34f05b8] Reasoning: This sentence highlights a specific statute that does not address the original document issue for electronically stored writings, indicating a gap in the law.
+  [ID: c3bff1bd-99bd-47a4-88aa-18a472e0848c] Reasoning: This sentence is a repetition of the previous one and does not add any new information.
+  [ID: 1fe7f388-6b10-4683-87b2-3c0ffa195974] Reasoning: This sentence reiterates the previous point about the statute's lack of clarity regarding electronically stored writings, providing no new insights.
+  [ID: a0dad9d7-2d57-49d4-a56d-a4881dda421e] Reasoning: This sentence discusses the implications of electronically stored court records being publicly available, raising concerns about privacy.
+  [ID: 2a50bfb0-bff2-4ad7-b4c5-dec3d199742f] Reasoning: This sentence references HIPAA's role in protecting electronically stored health information, providing context for legal protections.
+  [ID: da4af0ca-f61b-4b2e-958a-f2bb4b950dfa] Reasoning: This sentence describes a specific instance of security information being stored electronically, but lacks broader legal implications.
+  [ID: d002c42a-4ffb-42de-be79-32d18fcd2f09] Reasoning: This sentence states that inmate calls are recorded and stored electronically, but does not provide additional legal context.
+  [ID: e1b036eb-951f-4004-857c-5746c7a2f5cc] Reasoning: This sentence discusses the entitlement to an electronic copy of delinquent tax records, providing a practical application of the statute.
+  [ID: bf3afe6b-b867-482f-9ea8-12f9b93aa157] Reasoning: This sentence is a lengthy quote that does not provide new interpretive value and merely lists types of records.
+  [ID: 4dff12cc-b1ee-4eb3-9e5a-5a1e1cc72644] Reasoning: This sentence describes a computerized system for storing images electronically but lacks legal context or implications.
+  [ID: 66d3c085-41fb-436a-9db7-3cc610d45234] Reasoning: This sentence is a repetition of the previous one and does not add any new information.
+  [ID: e0f2b4bf-53e6-472b-917b-60745be17d93] Reasoning: This sentence provides case law references that clarify the admissibility of electronically stored data, adding significant interpretive value.
+  [ID: cef1ad1c-3e84-4716-ad47-a043d658fe9e] Reasoning: This sentence discusses the treatment of electronically stored records compared to traditional records, providing a relevant legal perspective.
+  [ID: 6bb4e3ee-a827-4402-9230-7d5ba8f98d9a] Reasoning: This sentence describes a legal action seeking disclosure of electronically stored forms, providing context for the application of the statute.
+  [ID: c3408118-ded4-471b-916e-90daf982ffe7] Reasoning: This sentence states that public records exist and are stored electronically, but does not provide additional legal context.
+  [ID: d9bf110a-536a-4ee7-8aa9-05f4e1d561d1] Reasoning: This sentence discusses a court's determination regarding misleading information about electronically stored records, indicating a legal issue.
+  [ID: 17b345ef-b9dd-4a22-a77c-577761be9a99] Reasoning: This sentence discusses the physical location of documents but does not provide any new interpretive context regarding electronic storage.
+  [ID: 26a80dff-e9c4-42ba-899e-5a0585155680] Reasoning: This sentence cites case law that clarifies the admissibility of electronically stored data as business records, providing important context for understanding the legal treatment of such information.
+  [ID: 60225c99-bfec-4ab8-ad2c-66b2a31ae234] Reasoning: This sentence provides a specific example of how AAFES manages its records, indicating the implications of electronic storage on record-keeping practices.
+  [ID: 7c8b2236-7694-4d30-bb58-772673d8f4b5] Reasoning: This sentence references personnel records stored electronically but lacks further context or application, making it less valuable.
+  [ID: a8851793-74a0-40c4-a035-7e0529230456] Reasoning: This sentence discusses the Privacy Act's protection of stored emails, providing a legal context that enhances understanding of electronic storage implications.
+  [ID: f438014c-ef5b-480d-94b4-04889d4e1da3] Reasoning: This sentence specifies the requirement for delivering documents, including those stored electronically, which adds context to the legal obligations regarding electronic records.
+  [ID: d95660a6-5432-40a4-8712-b59b23ae9dc1] Reasoning: This sentence illustrates a practical challenge related to accessing electronically stored logs, providing insight into operational issues.
+  [ID: 28f3ad05-537b-4534-9b37-43cb512920c1] Reasoning: This sentence states that military records are not stored electronically, which does not add value to the understanding of electronic storage.
+  [ID: 7f5a069e-9c7f-4641-9165-3346cf4083a2] Reasoning: This sentence discusses the potential types of files that could be stored electronically, but lacks specific legal context or application.
+  [ID: c7bfbac7-5b5b-4bce-b706-7bb6e6710e35] Reasoning: This sentence mentions the disclosure of confidential information stored electronically, which is relevant but lacks depth in legal interpretation.
+  [ID: 022522db-cc23-4c94-bf84-7b0ce83c6820] Reasoning: This sentence discusses a patent examiner's objection regarding the term 'property' in relation to electronic storage, providing insight into legal terminology.
+  [ID: 9ea050a2-1153-4df0-8a4f-3bb5a59a3c2f] Reasoning: This sentence explains a change in terminology to better fit the context of electronic storage, which adds interpretive value.
+  [ID: 46c81c5c-de3c-4ce6-b5f7-26d6dfff8e1b] Reasoning: This sentence makes a general statement about data being stored electronically, lacking specific legal context or application.
+  [ID: 4b594c4f-787b-4458-948b-afa7190b0b15] Reasoning: This sentence discusses the challenges of retrieving data stored electronically, providing context for legal considerations in data seizure.
+  [ID: 206af98c-dfdc-44db-a813-854ac55d1b1e] Reasoning: This sentence highlights the challenges of protecting electronically stored writings, which is relevant to understanding legal implications.
+  [ID: 20c44ccf-dc64-4587-b842-777784548336] Reasoning: This sentence references a regulation regarding electronic benefit information, which is relevant but lacks depth in legal interpretation.
+  [ID: aa16f92c-dc15-4ac8-a6f8-1f02f3eb0ed0] Reasoning: This sentence discusses the classification of products in relation to electronic storage, providing some interpretive context.
+  [ID: bc9b29cc-959a-4027-ae8c-98455e997c7f] Reasoning: This sentence explains the difference in storage methods for unclassified and classified records, adding context to the handling of electronic records.
+  [ID: a240a46f-9f17-4d33-b907-cded5c2162d8] Reasoning: This sentence states that itemized records were stored electronically and available for court submission, which is relevant but lacks depth.
+  [ID: ff1a6357-5824-4b63-90bc-ed0e0976a9d8] Reasoning: This sentence describes the IRS Master File as stored electronically, providing context for understanding IRS data management.
+  [ID: 25729e90-726f-4546-a80b-4cd5f7345875] Reasoning: This sentence mentions the claims administration system and its electronic records, but does not provide significant interpretive context.
+  [ID: 128fb3b0-8af0-43cc-be28-0185363bd535] Reasoning: This sentence discusses the constitutional implications of electronic storage versus paper, providing a relevant legal perspective.
+  [ID: e93cf67a-62a3-4831-84a2-ab79fc082ec9] Reasoning: This sentence is a repeat of a previous sentence regarding products considered articles when stored electronically, providing no new information.
+  [ID: d4062b4f-6c7d-4d6c-8334-f0b1b60cf45a] Reasoning: This sentence is a repeat of a previous sentence regarding documents explaining computer systems stored electronically, providing no new information.
+  [ID: 09af5f70-4bb4-444d-bdbe-224607977412] Reasoning: This sentence is a repeat of a previous sentence regarding documents explaining computer systems stored electronically, providing no new information.
+  [ID: 077a1024-ab41-4f18-8f43-adc71142cbb4] Reasoning: This sentence discusses the assertion of attorney-client privilege regarding material stored electronically but does not provide new interpretive context or application of the term.
+  [ID: 93fb8a11-a074-4e02-a6a3-987afbdc6d6f] Reasoning: This sentence mentions a specific case where a background report was stored electronically, but it lacks deeper interpretive context or legal implications.
+  [ID: 230e48d4-fe85-4604-9134-95fb77ac4683] Reasoning: This sentence describes a technical process involving a PDA device and storing emails electronically, but it does not provide significant interpretive value or context.
+  [ID: 5fc37891-677f-4dca-86ee-0265a3eef577] Reasoning: This sentence defines 'ESI' as information stored electronically, but it is a straightforward definition without additional context or application.
+  [ID: 9dfb5ef1-3b7a-4c91-b282-0d2b000ccec4] Reasoning: This sentence states a general observation about the prevalence of electronically stored information but lacks specific legal context or application.
+  [ID: c9a950ef-8b26-4ad8-aaf1-d4eba669d7e5] Reasoning: This sentence discusses the destruction of documents stored electronically but does not provide new interpretive insights or legal implications.
+  [ID: efc518ba-3d9e-4df7-affb-3955c5f505e1] Reasoning: This sentence describes a technical function of transducer nodes and their ability to store information electronically, but it lacks legal context.
+  [ID: a97745e4-d6c7-4d5a-b3a5-641ec0694d1d] Reasoning: This sentence discusses the requirement to protect confidential medical records stored electronically, providing some context but lacking deeper legal analysis.
+  [ID: c1ef6d8f-83ac-444b-a880-3f04dd1f256b] Reasoning: This sentence infers that complaints were stored electronically, but it does not provide significant interpretive context or legal implications.
+  [ID: 3f3abdc8-6680-453d-9cb3-82f27a0b9ebf] Reasoning: This sentence explains how electronically stored intangible information can be obtained, providing some legal context regarding the offense under subsection 1030(a)(2)(C).
+  [ID: f229fe4b-4092-4d83-9737-02f920e932cf] Reasoning: This sentence states that certain information exists only on paper and is not stored electronically, but it does not provide new interpretive insights.
+  [ID: f7e17632-825c-455a-8112-e2d4c78f44a4] Reasoning: This sentence describes a criminal charge involving images stored electronically, but it lacks deeper legal context or implications.
+  [ID: 0ba6f2e7-90ee-424b-88dd-f8676b6874f2] Reasoning: This sentence discusses the retention and disclosure of trade secret documents stored electronically, but it does not provide significant interpretive context.
+  [ID: 5d4fc78e-4190-4774-a188-b131e8c3af16] Reasoning: This sentence discusses the seizure of computer files stored electronically, providing some context regarding the scope of a warrant but lacks deeper legal analysis.
+  [ID: 87895133-bdb9-40c5-b52e-b687a7d68f97] Reasoning: This sentence mentions documents containing information stored electronically or in hard copy, but it does not provide new interpretive insights.
+  [ID: 0a496c42-9638-4636-9578-b91976eec96c] Reasoning: This sentence discusses illicit files existing apart from their electronic presence, but it does not provide significant legal context or implications.
+  [ID: f518988f-cf42-43b2-87a9-59f2eec12108] Reasoning: This sentence discusses a document stored electronically and its review process, but it lacks deeper legal context or implications.
+  [ID: 4a682abb-1834-410c-b591-784a416805ac] Reasoning: This sentence discusses the necessity of seizing hardware and software to access information stored electronically, providing some context but lacking deeper legal analysis.
+  [ID: 200aad7c-f019-4372-88d3-4e1168b5a8f9] Reasoning: This sentence discusses a court's conclusion regarding the ease of storage and transportation of documents stored electronically, providing some interpretive context.
+  [ID: 929fe232-4905-4bc6-802a-1e661cfa42d3] Reasoning: This sentence defines metadata related to electronically stored information, providing a clear explanation that aids understanding of the term.
+  [ID: 1a8cfdfe-f76c-4145-a382-56763e83d99d] Reasoning: This sentence states that Rule 34(a)(1) includes any type of information stored electronically, but it lacks deeper interpretive context.
+  [ID: bc616d10-735b-41e1-98a9-06f862be2143] Reasoning: This sentence discusses discovery motions seeking documents stored electronically, but it does not provide significant interpretive context or legal implications.
+  [ID: c929e567-3232-4f33-9bf2-15c18ce62fc8] Reasoning: This sentence mentions loan files containing information stored electronically, but it lacks deeper legal context or implications.
+  [ID: c6aa90ad-c04b-4e30-919c-751b9966add5] Reasoning: This sentence discusses business records that may include data stored electronically, but it does not provide significant interpretive context.
+  [ID: 74de2cfc-77c6-4494-90ea-a2c059969890] Reasoning: This sentence states that mortgage files are stored electronically, but it lacks deeper legal context or implications.
+  [ID: b4735880-14de-425f-ac49-9cd85e7e14aa] Reasoning: This sentence merely states that Romaco seeks information stored electronically by ABRO, without providing any additional context or interpretive value.
+  [ID: ab83180f-b00c-4165-87ab-2025247f5c98] Reasoning: This sentence lists specific information that was not entered into a system and stored electronically, but it does not provide any interpretive context or application of the term.
+  [ID: d0c43fbd-ed6d-4477-a043-b414287b0f66] Reasoning: This sentence states that Helferieh's documents are stored electronically, which is a simple factual statement without any interpretive depth.
+  [ID: 38be40f0-c6aa-4684-83d7-1a544c93a7e6] Reasoning: This sentence discusses the court's need for more details about the information stored electronically, but it lacks substantive interpretive value regarding the term itself.
+  [ID: 0bb711dd-bb57-44af-9d78-a78ca1fda1c6] Reasoning: This sentence mentions a disagreement about issues related to the production of information stored electronically, but it does not elaborate on the implications or applications of the term.
+  [ID: 8018fca2-2628-46dd-9973-88cd1720d7c8] Reasoning: This sentence discusses compliance with Rule 34 regarding the production of electronic information, but it does not provide deeper interpretive insights into the term 'stored electronically.'
+  [ID: 70c61291-2238-4a67-8bee-b20928373b9c] Reasoning: This sentence mentions allegations regarding the failure to preserve and produce documents stored electronically, but it lacks substantive interpretive context.
+  [ID: dd560f6e-6a5e-49e8-bbc0-e547e814c00b] Reasoning: This sentence discusses the justification for seizing computer records and mentions electronic storage, but it does not provide interpretive depth.
+  [ID: fe8df264-49c4-485c-8e5c-af58c2458037] Reasoning: This sentence states that data is usually stored electronically, but it does not provide any interpretive context or application of the term.
+  [ID: 2a324847-3aa1-42b6-8cfc-708b1721a51e] Reasoning: This sentence discusses the requirement for records to be adjusted electronically, but it does not clarify the implications of 'stored electronically.'
+  [ID: 9c5903cc-c0dd-45ea-9225-f63028c4d635] Reasoning: This sentence discusses the requirements for electronic adjustments and storage, but it does not provide deeper interpretive insights into the term 'stored electronically.'
+  [ID: c6e85194-1f05-4d81-bcbd-7de82ab7b6cb] Reasoning: This sentence describes how messages are stored electronically, but it does not provide any interpretive context or application of the term.
+  [ID: 197f8b15-d653-438e-8b05-d277a144bf8a] Reasoning: This sentence lists various types of documents that can be stored electronically, but it does not provide any interpretive context or application of the term.
+  [ID: ce71dacc-ad8f-4233-8bb7-66d8e45efeb5] Reasoning: This sentence states a statistic about business documents being stored electronically, but it lacks interpretive depth.
+  [ID: 45d4241b-f21e-47c3-910a-543e18d47286] Reasoning: This sentence discusses the storage of relevant documents electronically on servers, but it does not provide deeper interpretive insights.
+  [ID: 529cb37f-5db2-4695-8152-8bd13ff9fb0c] Reasoning: This sentence notes that the majority of documentation is stored electronically, but it does not provide any interpretive context or application of the term.
+  [ID: ca927c74-d51b-4fd6-bf0e-54a8579f9d19] Reasoning: This sentence reiterates that the majority of documentation is stored electronically, similar to previous sentences, without adding new interpretive value.
+  [ID: a51c2f32-81ed-426f-9f75-3ae2b05f070b] Reasoning: This sentence states that the Commissioner's records are stored electronically, but it does not provide any interpretive context or application of the term.
+  [ID: df1c8a98-a251-485e-979c-4abb982f75ac] Reasoning: This sentence mentions Dr. Kroll's practice of storing examination results electronically, but it lacks interpretive depth.
+  [ID: 10ed2897-b108-4423-bfcd-541ab4cac657] Reasoning: This sentence discusses a patient file that was created to replace a lost file, mentioning electronic storage, but it does not provide deeper interpretive insights.
+  [ID: 5ead9f1c-f3fc-4794-a735-e20ab61d7052] Reasoning: This sentence speculates about the future of medical records being stored electronically, but it does not provide any interpretive context or application of the term.
+  [ID: 86d596b6-ae83-4876-8c67-685fa9ba15d7] Reasoning: This sentence discusses the obligations of an attorney regarding discoverable information stored electronically, but it does not provide deeper interpretive insights.
+  [ID: 62a31bca-db26-4c8f-b7ed-aaf04c4f5edc] Reasoning: This sentence mentions the lack of case law addressing the right to inspect public records stored electronically, but it does not provide substantive interpretive value.
+  [ID: ad8ef290-d3fe-42b8-bd55-1d804b9bb795] Reasoning: This sentence states that information may be stored electronically and transferred using portable document files, but it lacks interpretive depth.
+  [ID: d5c56b21-82a0-4d71-9418-8bba2e964fcb] Reasoning: This sentence discusses the nature of records being physical or stored electronically, but it does not provide any interpretive context or application of the term.
+  [ID: 1bf67a56-1085-4d03-b013-2eaedf5f2efc] Reasoning: This sentence discusses the requirement for proof that personal data was stored electronically, but it does not provide any new interpretive context or application beyond a factual statement.
+  [ID: d19eff02-fa22-42b2-9609-5e8edbff8e38] Reasoning: This sentence explains the justification for seizing computer hardware to find data stored electronically, providing context for the application of the term in a legal setting.
+  [ID: d22e44bf-1949-4416-a4d0-173a6b916c0d] Reasoning: This sentence states that Richardson offers no facts to dispute that documents were stored electronically, but it does not add any interpretive value or context.
+  [ID: d7c81f71-8b09-4825-83f4-99a4a437c941] Reasoning: This sentence provides a definition of a disk but does not add any interpretive context regarding the term 'stored electronically'.
+  [ID: 8cc0b1cc-5887-4f76-900b-5cc967b61305] Reasoning: This sentence describes how positions are stored electronically for feedback and evaluation, providing a practical application of the term.
+  [ID: db9dbc68-8f31-432d-8329-ed73c2f99550] Reasoning: This sentence discusses the Advisory Committee's notes on Rule 34, indicating an expansive interpretation of electronically stored information, which adds significant interpretive context.
+  [ID: 7a8de851-8870-45df-81f6-8f5cc6bfe254] Reasoning: This sentence states that Rule 34(a)(1) includes any type of information stored electronically, but it lacks depth in explaining its implications.
+  [ID: 43f3460c-6ea3-45a1-8a12-4bc25d5d01b6] Reasoning: This sentence explains that a business record may include data stored electronically, providing context for its admissibility in court.
+  [ID: d09db123-18d1-42bf-9938-3e1a1242c7f0] Reasoning: This sentence discusses the economic efficiency of using electronic copies, which provides context for the practical implications of storing documents electronically.
+  [ID: b4dfb707-d16b-49bc-b78d-de55b137cb74] Reasoning: This sentence states that defendants did not specify the form of producing documents stored electronically, but it lacks interpretive depth.
+  [ID: dde0734c-d7af-4bfc-8169-0d76b371b572] Reasoning: This sentence provides a general statement about data typically stored electronically but lacks specific interpretive context.
+  [ID: a419c95a-e873-458d-b3fd-4e5e99b73fdb] Reasoning: This sentence describes how images were stored electronically on a network server, providing a practical example of electronic storage.
+  [ID: d5d175cc-21e3-4ad0-a5f5-ed6c5f2b6b6f] Reasoning: This sentence repeats a definition of metadata without adding new interpretive context, making it redundant.
+  [ID: 4f70e689-7518-4e25-bf40-a9ccbdc620af] Reasoning: This sentence discusses a definition of 'Electronic Record' but does not provide new interpretive context beyond the definition itself.
+  [ID: 5821b5d0-08db-42e8-be87-c3dc1411215f] Reasoning: This sentence is a repeat of a previous statement about business records and does not add new information.
+  [ID: 9f81334d-5ef3-4e15-8b19-5fbbbb03ca98] Reasoning: This sentence discusses a court's rejection of an argument regarding electronically stored evidence, providing context for legal interpretation.
+  [ID: 543510b7-7305-45bd-ad9d-752cbc4ad7ee] Reasoning: This sentence discusses the efficiency of reviewing electronically stored records, providing context for the implications of electronic storage.
+  [ID: e98e8da5-bfe5-463a-9df2-f3cb3e263c06] Reasoning: This sentence discusses the use of electronic storage media and their implications for information disclosure, providing context for the term.
+  [ID: 4bac6447-2de0-42ca-ab40-742880df3171] Reasoning: This sentence discusses a distinction regarding credit and debit cards and their information stored electronically, but it lacks depth in legal interpretation.
+  [ID: b9d72822-145f-42ca-a9dd-cdd6d20580ea] Reasoning: This sentence states that images were stored electronically on a computer disc, but it does not provide additional interpretive context.
+  [ID: 4586389d-d1b3-4d7d-a30b-ea1c17cb15bf] Reasoning: This sentence states that J3 files are stored electronically, but it does not provide any new interpretive context.
+  [ID: cf1a1a18-485e-4a93-8968-7cc7043e8a14] Reasoning: This sentence discusses the SCA's prohibition on disclosing electronically stored communications, providing context for legal interpretation.
+  [ID: 277b3a85-0e06-4e63-99b3-32189effe2e9] Reasoning: This sentence states that information was stored electronically on a computer system, but it does not add new interpretive context.
+  [ID: 469076a8-a120-4a9d-9e3c-fa99206c5aa0] Reasoning: This sentence describes the materials to be seized in a search warrant, including information stored electronically, but it lacks depth in legal interpretation.
+  [ID: 7fdf982f-2500-4411-b387-cb676936342b] Reasoning: This sentence states that information is stored electronically by ABRO, but it does not provide any new interpretive context.
 Method: probabilities | Term: stored electronically
-NDCG@10: 0.5563315505202127
-NDCG@20: 0.6092627201133146
-NDCG@40: 0.6503915091197578
-NDCG@100: 0.7101125377411551
+NDCG@10: 0.6588308190646298
+NDCG@20: 0.6883583660238938
+NDCG@40: 0.7262913326876004
+NDCG@100: 0.732781545181547
 
 ----------------------------------------
 STDERR:
@@ -133,12 +286,14 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/10 [00:00<?, ?batch/s]
-GPT batches:  10%|█         | 1/10 [00:06<00:59,  6.64s/batch]
-GPT batches:  20%|██        | 2/10 [00:17<01:12,  9.09s/batch]
-GPT batches:  30%|███       | 3/10 [00:22<00:49,  7.10s/batch]
-GPT batches:  50%|█████     | 5/10 [00:22<00:15,  3.12s/batch]
-GPT batches:  60%|██████    | 6/10 [00:22<00:09,  2.28s/batch]
-GPT batches:  70%|███████   | 7/10 [00:22<00:05,  1.70s/batch]
-GPT batches:  90%|█████████ | 9/10 [00:23<00:01,  1.03s/batch]
-GPT batches: 100%|██████████| 10/10 [00:29<00:00,  2.26s/batch]
-GPT batches: 100%|██████████| 10/10 [00:29<00:00,  2.93s/batch]
+GPT batches:  10%|█         | 1/10 [00:13<02:02, 13.62s/batch]
+GPT batches:  20%|██        | 2/10 [00:29<02:00, 15.12s/batch]
+GPT batches:  30%|███       | 3/10 [00:43<01:41, 14.49s/batch]
+GPT batches:  40%|████      | 4/10 [00:46<01:00, 10.08s/batch]
+GPT batches:  50%|█████     | 5/10 [00:48<00:34,  6.94s/batch]
+GPT batches:  60%|██████    | 6/10 [00:48<00:19,  4.81s/batch]
+GPT batches:  70%|███████   | 7/10 [00:49<00:10,  3.46s/batch]
+GPT batches:  80%|████████  | 8/10 [00:50<00:05,  2.66s/batch]
+GPT batches:  90%|█████████ | 9/10 [00:50<00:01,  1.94s/batch]
+GPT batches: 100%|██████████| 10/10 [00:52<00:00,  1.88s/batch]
+GPT batches: 100%|██████████| 10/10 [00:52<00:00,  5.26s/batch]

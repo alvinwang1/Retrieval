@@ -1,131 +1,403 @@
 Command: /opt/anaconda3/bin/python rank.py --term substantial portion of the public --type probabilities --sentences sources/substantial_portion_of_the_public/substantial_portion_of_the_public-sentence.json --provisions sources/provisions.json --verbose false
 ----------------------------------------
-You are an expert legal text annotator. Your task is to determine how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+You are an expert legal scholar specializing in statutory interpretation. Your task is to evaluate the interpretive value of retrieved sentences in relation to a specific "Phrase of Interest" and its "Source Statute/Provision".
 
-You will be given:
+### KEY RULE: PENALIZE STATUTORY REDUNDANCY (ADVERSARIAL GOAL)
+You must act as a critic looking to disqualify sentences that provide NO NEW INFORMATION.
+- IF a sentence merely repeats or paraphrases the provided "Source Statute/Provision" without adding interpretive context (like case law, specific applications, or expert analysis), it has **NO VALUE**.
+- A literal quote of the statute is a redundant distraction. Assign 'no value' a probability of 0.90 or higher.
+- Interpretive value comes from how the statute is *applied* or *explained* in practice, not from the text of the statute itself.
 
-The phrase of interest
+### RELEVANCE CATEGORIES
+- **0: no value**: Irrelevant, off-topic, or purely redundant statutory text.
+- **1: potential value**: Mentions the term in a relevant context but adds very little interpretive depth (e.g., a simple factual statement).
+- **2: certain value**: Relevant; provide clear application, context, or explanation of the term that helps understand its scope or meaning.
+- **3: high value**: Highly relevant; Provides critical interpretive guidance, settles a legal ambiguity, or explains a complex application in a way that significantly aids interpretation.
 
-The statutory or regulatory provision containing that phrase (“the statute”)
+### GRANULARITY & TIE-BREAKING
+- **BE PRECISE**: Do not give all relevant sentences the same score. Distinguish between a "good" explanation (Score 2) and an "excellent" one (Score 3). 
+- **RESOLUTION**: Use granular probabilities (e.g., 0.35, 0.62) to ensure the final ranking is stable and distinguishes between similar-quality sentences.
 
-A list of candidate sentences, each with a unique sentence_id
+### OUTPUT FORMAT
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field.
 
-Your classification must consider both the phrase of interest and the statute.
-If a candidate sentence merely repeats, quotes, or paraphrases any part of the statute without adding interpretive meaning, it MUST be labeled "no value".
-
-✅ OUTPUT FORMAT (STRICT)
-
-Return ONLY a JSON array, nothing else:
-
+Example:
 [
-  {"sentence_id": "...", "label": "..."},
-  {"sentence_id": "...", "label": "..."}
+  {
+    "sentence_id": "S1",
+    "reasoning": "Direct quote of Section 60101. No interpretive value beyond the statute itself.",
+    "probs": {"no value": 0.98, "potential value": 0.02, "certain value": 0.0, "high value": 0.0}
+  },
+  {
+    "sentence_id": "S2",
+    "reasoning": "Applies 'hazardous liquid' to liquid CO2 pipelines, clarifying a major jurisdictional boundary.",
+    "probs": {"no value": 0.05, "potential value": 0.15, "certain value": 0.30, "high value": 0.50}
+  }
 ]
 
+### DATA TO PROCESS
+Phrase of Interest: {{phrase_of_interest}}
+Source Statute/Provision: {{raw_statute}}
 
-No explanations, no comments, no reasoning, no additional keys.
+Sentences to evaluate:
+{{sentences}}
 
-✅ CLASSIFICATION LABELS
-
-Exactly one label per sentence:
-
-"no value"
-
-"potential value"
-
-"certain value"
-
-"high value"
-
-✅ ANNOTATION GUIDELINES
-
-A sentence has value only if it contributes interpretive information about the phrase of interest beyond what is already stated in the statute.
-
-Evaluate each sentence using the following workflow:
-
-STEP 1 — Does the sentence add ANY new interpretive information beyond the statute?
-
-If the sentence:
-
-repeats or paraphrases the statute
-
-quotes the statute verbatim or near-verbatim
-
-is a heading, boilerplate, citation, or procedural note
-
-does not mention or relate meaningfully to the phrase of interest
-
-→ Label: "no value"
-→ Stop.
-
-STEP 2 — Does the sentence use the phrase of interest with a different meaning?
-
-If different and unrelated to the statute’s meaning → "no value".
-If different but related → "potential value" or "certain value" depending on strength.
-Then stop.
-
-STEP 3 — Does the sentence contain explicit elaboration of meaning?
-
-Explicit elaboration includes:
-
-definitions
-
-explanations
-
-positive or negative examples
-
-subsumption (“X is a type of Y”)
-
-contrasts
-
-feature inclusion (“X requires Y”)
-
-feature exclusion (“X does not include Y”)
-
-If yes:
-
-If authored by an interested party/witness → "certain value"
-
-If authored by a court, judge, legislature, agency, or other neutral authority → "high value"
-
-Then stop.
-
-STEP 4 — Does the sentence contain implicit elaboration?
-
-Implicit elaboration includes:
-
-factual scenarios implying boundaries of the term
-
-contextual clues from which meaning can be inferred
-
-comparisons or contrasts that clarify usage
-
-functional descriptions suggesting how the term operates
-
-If none → "potential value" (weak relevance; no direct elaboration).
-If implicit elaboration exists:
-
-If from an interested source → "potential value"
-
-If from a neutral source → "certain value"
-
-Then stop.
-
-✅ ADDITIONAL NOTES
-
-Do NOT assign value based solely on topical similarity.
-
-Do NOT treat case outcomes or procedural facts as meaningful unless they clarify the term’s meaning.
-
-Always choose the lowest plausible label when uncertain.
-
-The goal is interpretive usefulness, not relevance to the case as a whole.
-
+  [ID: 732ec972-eae3-4e3c-b26f-c70d47a37cad] Reasoning: This sentence discusses the ability of a plaintiff to demonstrate unfairness or deception without a specific statute, but it merely repeats the concept of 'capacity to deceive a substantial portion of the public' without adding new interpretive context.
+  [ID: 1ea8d7e6-e5d2-48cc-a63c-1aaf7ff71e7b] Reasoning: This sentence reiterates the requirement for a plaintiff to show capacity to deceive a substantial portion of the public, without providing additional context or application.
+  [ID: 274c19cd-e90a-417e-b8ed-ef748486b87e] Reasoning: This sentence is a restatement of the previous concepts regarding the capacity to deceive a substantial portion of the public, lacking any new interpretive insights.
+  [ID: 2ca5d9dc-e1e6-4446-a653-5436f54c280d] Reasoning: This sentence repeats the test regarding capacity to deceive a substantial portion of the public without providing any new context or application.
+  [ID: c8f1ae91-3463-4a17-a72b-3add199f53bc] Reasoning: This sentence reiterates the requirement for showing capacity to deceive a substantial portion of the public, offering no new interpretive context.
+  [ID: 5ffa1270-fedc-48b6-97ba-00970021b2d9] Reasoning: This sentence introduces a specific argument regarding marketing aimed at design professionals, but it still centers on the capacity to deceive a substantial portion of the public without deeper analysis.
+  [ID: 14a48724-dbfc-4754-92e2-d62ce8e506fc] Reasoning: This sentence repeats the standard that intent to deceive is not necessary, focusing again on the capacity to deceive a substantial portion of the public without adding new insights.
+  [ID: c359ef84-83dd-416c-b937-63f24755c900] Reasoning: This sentence states that only acts with the capacity to deceive a substantial portion of the public are actionable, reiterating existing legal standards without new context.
+  [ID: 9068195d-8f67-4e9d-8047-586f698d539d] Reasoning: This sentence outlines elements that may establish an unfair or deceptive act, but it does not provide new interpretive context beyond restating the capacity to deceive.
+  [ID: 04f7b2c5-a479-47fe-b5af-2a896e7911ea] Reasoning: This sentence reiterates the requirement for showing capacity to deceive without adding any new interpretive context or application.
+  [ID: 380fddd1-9d2b-4c7f-bf05-80113200c328] Reasoning: This sentence references Washington cases but ultimately repeats the standard regarding capacity to deceive without providing new insights.
+  [ID: cd5cff2c-0c8e-48e0-b19c-121dba100b21] Reasoning: This sentence discusses a specific practice that may have the capacity to deceive, but it does not provide deeper interpretive context or analysis.
+  [ID: 726bbb9b-ae03-454c-9db1-ed0d852b3cd3] Reasoning: This sentence outlines two ways to show capacity to deceive, but it does not provide new interpretive context or application beyond restating existing standards.
+  [ID: 3997d57f-7579-43b0-a94f-617d4fb18be1] Reasoning: This sentence discusses causation in relation to capacity to deceive, but it does not provide new insights or applications beyond existing standards.
+  [ID: 978a1034-8f64-464a-8829-1b9a23dc7218] Reasoning: This sentence is a direct quote reiterating the standard for showing capacity to deceive, providing no new interpretive context.
+  [ID: 28eda1a0-a959-422a-94e2-bf3a8bac7f40] Reasoning: This sentence states that evidence does not demonstrate other deceptive acts, but it does not provide new interpretive context regarding the capacity to deceive.
+  [ID: 898f19c7-04df-4224-99b6-630a028cde99] Reasoning: This sentence is a direct quote from the statute regarding 'commercial mobile radio service' and does not provide any new interpretive context.
+  [ID: e6d7ea88-9334-48bc-8e1e-b055d7aec002] Reasoning: This case discusses the concept of public performance and how a performance can still be considered public even with audience restrictions, which relates to the idea of a 'substantial portion of the public'.
+  [ID: f78440f8-1dfb-41d1-a092-9406a7fe1598] Reasoning: This sentence explains that despite a limitation on audience size, the potential for a substantial portion of the public to attend remains, which adds context to the term's application.
+  [ID: 1945a550-abb2-438f-8134-0ac10ea47cc5] Reasoning: This sentence discusses factors that weigh against access, contrasting personal matters with those affecting a substantial portion of the public, but lacks depth in explaining the term.
+  [ID: 50f96595-903d-4b41-aaad-dabb729f9a44] Reasoning: This sentence indicates that evidence did not show a substantial portion of the public was at risk, but it does not provide further interpretive context.
+  [ID: 878ba3d3-71b2-47e7-a91a-90821a8388bf] Reasoning: This sentence is a vague statement about public perception of shoes and does not provide meaningful context or application of the term.
+  [ID: 91973aa0-5944-4205-b469-ba5aea126e44] Reasoning: This sentence is identical to the previous one and offers no new information or context.
+  [ID: 41ac79cd-6e16-4d31-ab36-74a5181435c6] Reasoning: This sentence discusses the withdrawal of public domain lands but does not relate to the term 'substantial portion of the public' in a relevant context.
+  [ID: 041778b9-2990-4bc5-9737-1db43d1b9e0a] Reasoning: This sentence discusses privacy invasion but does not provide a clear application or explanation of the term in a legal context.
+  [ID: 0583d28f-9110-4948-ab33-049d8af2aec3] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public in the context of unfair trade practices, providing relevant legal context.
+  [ID: 2cbede68-1375-401d-acc1-b542f975db87] Reasoning: This sentence mentions the capacity to deceive a substantial portion of the public in relation to specific practices, adding context to the term's application.
+  [ID: dd369735-54ad-41f3-a489-5ff7bf29c351] Reasoning: This sentence discusses the failure to allege key elements under RICO and the Consumer Protection Act, including the capacity to deceive a substantial portion of the public, providing relevant legal context.
+  [ID: 41d9b1a4-6e35-409d-9a8d-6ce62df0b172] Reasoning: This sentence discusses business licenses and public streets but does not relate to the term 'substantial portion of the public' in a relevant context.
+  [ID: ad1efce3-ff79-4b4b-aa8e-5d54cd7b15ac] Reasoning: This case discusses the use of descriptive words that could mislead a substantial portion of the public, providing relevant legal context.
+  [ID: 3acd3ac0-5f03-482d-97d0-ec30dd929fda] Reasoning: This sentence states that a statement is deceptive to a substantial portion of the public, providing relevant context for the term's application.
+  [ID: d3e97d32-c07f-400e-8fe3-ce58f29104c3] Reasoning: This sentence discusses public perception regarding obesity and a product, providing context for the term's application.
+  [ID: ba58f507-b16d-4dc3-80fa-d3ec5481891b] Reasoning: This sentence states that plaintiffs must show the capacity to deceive a substantial portion of the public under the WCPA, providing relevant legal context.
+  [ID: f91a65d3-aead-481a-b562-7a1a53c31f57] Reasoning: This sentence discusses the need to show the capacity to deceive a substantial portion of the public in proving deceptive acts, providing relevant legal context.
+  [ID: ab319358-a824-4a2a-b52d-059e7f97f447] Reasoning: This sentence discusses the association of a product design with a company, but it does not provide any legal context or application related to the term 'substantial portion of the public'.
+  [ID: f2e5b238-9a27-4f8d-a0a2-84fccf7f7396] Reasoning: This sentence mentions a substantial portion of the public in relation to comp time in the public sector but lacks specific legal context or application.
+  [ID: fb132df8-c75f-44d7-8858-b473f166a6d0] Reasoning: This sentence explains the requirement to show that an act had the capacity to deceive a substantial portion of the public, providing context for its application in legal practice.
+  [ID: be211617-39c0-44a8-a23d-7b3824352388] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public in the context of a refusal to pay for services, providing a specific application of the term.
+  [ID: f7038988-a313-45a7-a9e3-6b5a6ab0c7c7] Reasoning: This sentence uses the phrase in a hypothetical context about privacy invasion but does not provide legal context or application.
+  [ID: b38c24cf-9196-47e7-a49a-7249abfc58a3] Reasoning: This sentence discusses public association with a trademark, providing a specific legal context for the term 'substantial portion of the public'.
+  [ID: caef0f15-9143-479a-a153-7b8d162290c7] Reasoning: This sentence reiterates the requirement for acts to have the capacity to deceive a substantial portion of the public, but does not add new interpretive context.
+  [ID: 33aacbf5-7a8d-4a2a-bd1d-4cd0cc23d3fd] Reasoning: This sentence discusses the difficulty of quantifying loss related to practices capable of deceiving a substantial portion of the public, providing some interpretive context.
+  [ID: 4ab6707c-2af1-41bd-b106-c91cb090d8d8] Reasoning: This sentence explains the requirement for proving deception in a CPA action, providing a clear application of the term.
+  [ID: 1003d7c4-99d9-41da-9661-fc8cc3931ee0] Reasoning: This sentence is a repeat of the previous one, providing no new information.
+  [ID: 40ffc3b1-f938-4bb4-beca-e0e045ca26ab] Reasoning: This sentence describes mobile broadband as a service available to a substantial portion of the public, but it does not provide additional interpretive context.
+  [ID: d6e4630e-f2f6-41f6-832c-7ffde239afb1] Reasoning: This sentence reiterates the statutory definition of commercial mobile service, providing no new interpretive context.
+  [ID: d90e866f-a067-4e92-bf49-7649ab177754] Reasoning: This sentence is a direct quote of the statute, providing no new interpretive value.
+  [ID: 936736be-0fc9-414f-b4c6-9cd66c3946a5] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public in the context of unfair or deceptive practices, providing relevant legal context.
+  [ID: 3af7723a-8d14-4ef8-924d-a10bc8819417] Reasoning: This sentence discusses the potential to deceive a substantial portion of the public in a specific context, providing some interpretive value.
+  [ID: 5fcd8f21-df39-44a8-8569-f8d5196db3cd] Reasoning: This sentence discusses a court case where cold-calling had the potential to deceive a substantial portion of the public, providing a specific legal application.
+  [ID: 9dc48aa7-0c5b-4797-a4d1-9e91d220ca2a] Reasoning: This sentence discusses a case where misrepresentations were not capable of deceiving a substantial portion of the public, providing relevant legal context.
+  [ID: 2c8e827f-5562-4048-8fbb-01a6d9279a9a] Reasoning: This sentence discusses the capacity to mislead a substantial portion of the public in the context of advertising, providing relevant legal context.
+  [ID: 7635111f-e7e9-4382-a947-eb819c36e488] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public in a specific context, providing some interpretive value.
+  [ID: 60af42c6-7285-477c-8108-6f2839f3842e] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public but does not provide any new interpretive context or application beyond the phrase itself.
+  [ID: 2eedd1c6-9dcc-4000-954f-b2ff497e4150] Reasoning: This sentence explains that a claimant does not need to show intent to deceive, only the capacity to deceive a substantial portion of the public, which adds some interpretive context.
+  [ID: d85a397e-99c3-4748-83e3-1645dc327d7d] Reasoning: This sentence provides an example of how a sign's business solicitation could potentially deceive a substantial portion of the public, adding context to the phrase.
+  [ID: a09c10fa-4b59-4d5c-905a-5d61fbb99446] Reasoning: This sentence discusses the sufficiency of evidence regarding deceptive acts capable of deceiving a substantial portion of the public, providing context for legal standards.
+  [ID: cf80762f-387f-463b-baab-a4243ecaeead] Reasoning: This sentence uses the phrase in a hypothetical context about privacy invasion but does not add significant interpretive value.
+  [ID: 0cccb8e5-ddb4-4462-8ef0-faab7c0c4870] Reasoning: This sentence discusses the potential for privacy invasions affecting a substantial portion of the public, but lacks depth in legal interpretation.
+  [ID: 2aa8a48f-b982-4e25-875c-eb3dac7e6cc7] Reasoning: This sentence cites a case that clarifies that intent to deceive is not necessary, which provides useful interpretive context.
+  [ID: d06c06aa-e13e-4879-b7d6-fa4992289f3c] Reasoning: This sentence discusses the standard of skill in professions affecting a substantial portion of the public, but does not directly relate to the phrase of interest.
+  [ID: 50167af8-10fa-456b-a58b-7f3afe230aae] Reasoning: This sentence discusses the implications of compliance costs on a substantial portion of the public, providing context for legal interpretation.
+  [ID: e70215ef-2f1c-46ac-84ab-423f1dc2ca7a] Reasoning: This sentence reiterates the previous point about compliance costs affecting a substantial portion of the public, but adds a legal context regarding equal protection.
+  [ID: 28b5b966-bc98-40e1-a793-2946eb29ab01] Reasoning: This sentence restates the principle that an act need only have the capacity to deceive a substantial portion of the public, providing minimal new information.
+  [ID: 098640a8-69e9-485f-84b9-96e3a8b541f7] Reasoning: This sentence discusses a specific case where a practice had the capacity to deceive a substantial portion of the public, adding context to the application of the term.
+  [ID: ba8f90b1-21ea-4def-805a-777e00e5e115] Reasoning: This sentence describes how a surcharge could deceive a substantial portion of the public, providing a specific example that adds interpretive value.
+  [ID: 4ad0515b-807f-4d46-bdf4-d76dd95fd134] Reasoning: This sentence discusses the potential for a term to deceive a substantial portion of the public, providing a specific context that adds value.
+  [ID: c2cfe42e-6f8b-4e7c-b594-ea5f9a892628] Reasoning: This sentence states that a specific practice does not have the capacity to deceive a substantial portion of the public, which is a relevant application.
+  [ID: 2c8f115f-4861-4675-bcb3-80456a47d9e7] Reasoning: This sentence poses a question about the capacity to deceive a substantial portion of the public, but lacks depth in legal interpretation.
+  [ID: 1760e8eb-69f0-49a1-9629-a795b3a171b9] Reasoning: This sentence states that proving capacity to deceive a substantial portion of the public is sufficient for a CPA claim, providing useful legal context.
+  [ID: f596479d-d8ae-4b8f-83c0-21c4db1b2a33] Reasoning: This sentence discusses the need for evidence to show that actions could lead a substantial portion of the public to a specific belief, adding context to the application of the term.
+  [ID: 4ad2c0b7-bffc-4a10-a99e-4124f5934374] Reasoning: This sentence reiterates the principle that intent to deceive is not necessary, providing minimal new information.
+  [ID: f5535c47-24b2-4d47-a858-cac54a046ba3] Reasoning: This sentence explains how insurance notices could deceive a substantial portion of the public, providing a specific example that adds interpretive value.
+  [ID: bc643241-2370-4c21-9155-8343050a2ab4] Reasoning: This sentence discusses the impact of unfair or deceptive acts on a substantial portion of the public, providing context for legal interpretation.
+  [ID: 4125b0f0-c94f-4328-8020-ce55ef2497c9] Reasoning: This sentence reiterates the principle that intent to deceive is not necessary, providing minimal new information.
+  [ID: 7fca327c-2350-4c03-908f-9a0049309e51] Reasoning: This sentence references several cases that clarify the meaning of capacity to deceive a substantial portion of the public, providing valuable interpretive guidance.
+  [ID: 74271154-5438-4ac8-bad3-69ec8b5997a6] Reasoning: This sentence discusses the potential for deception but does not provide significant new information or context.
+  [ID: ce3e90fa-7e89-4313-ae64-f78d72f2b3f9] Reasoning: This sentence states there is insufficient evidence for capacity to deceive a substantial portion of the public, which is relevant but lacks depth.
+  [ID: bed8b1ec-cb82-48eb-979e-f60bfafe15f6] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public in the context of a legal argument, but does not provide new interpretive context or application beyond the statutory language.
+  [ID: 92d5158a-e18a-43a3-a7fa-d680d37e5f09] Reasoning: This sentence asserts that it is implausible for a substantial portion of the public to be deceived in a specific context, but it does not provide any legal analysis or application that adds interpretive value.
+  [ID: ae9449b5-0b99-477d-81b2-32444e49e3ed] Reasoning: This sentence discusses the lack of ability to affect a substantial portion of the public, but it does not provide any new interpretive context or application.
+  [ID: d4cbe1b8-b810-488a-9a01-99a272983569] Reasoning: This sentence is a direct quote of the statute defining 'commercial mobile service' and does not provide any interpretive context or application.
+  [ID: b35d3900-245b-44bb-8ee1-2ef2395319af] Reasoning: This sentence discusses the clarity and repetition required for advertising to reach a substantial portion of the public, but it does not provide deeper interpretive context.
+  [ID: 1615e76c-61e6-4755-a089-2e219300e120] Reasoning: This sentence provides context about misleading advertisements affecting a substantial portion of the public, which adds some interpretive value regarding the application of the term.
+  [ID: b8843cff-1ea1-4c74-9d4d-94869188024b] Reasoning: This sentence reiterates the concept that an act need only have the capacity to deceive a substantial portion of the public, which is redundant and does not add new information.
+  [ID: 6384f241-2f08-47ad-a9b3-532551aa848d] Reasoning: This sentence states that conduct is alleged to have the capacity to deceive a substantial portion of the public, but it does not provide new interpretive context.
+  [ID: 14ad06ca-0329-4663-9964-ab93e1d12649] Reasoning: This sentence is a direct quote of the statutory requirement regarding the capacity to deceive a substantial portion of the public, providing no new interpretive value.
+  [ID: ce836803-7337-4a6e-8b27-cf805d5b68ef] Reasoning: This sentence discusses a group being too small to constitute a substantial portion of the public, but it does not provide new interpretive context or application.
+  [ID: ecd2bf16-b404-49a0-989d-9c5bb7a56642] Reasoning: This sentence provides a case citation discussing the definition of a substantial portion of the public, which adds interpretive context and application.
+  [ID: 34218569-44ed-44fd-af0a-911eef1807a3] Reasoning: This sentence explains the requirement for a plaintiff to allege that conduct had the capacity to deceive a substantial portion of the public, providing clear interpretive guidance.
+  [ID: 6e584b70-b145-43e4-a52b-bb6af70f2c74] Reasoning: This sentence discusses a specific deceptive act and its capacity to deceive a substantial portion of the public, providing relevant context.
+  [ID: ab08adfa-d520-44a8-b50c-50143e99bfb7] Reasoning: This sentence discusses public association with a trademark, which is somewhat relevant but does not provide significant interpretive depth regarding the phrase of interest.
+  [ID: 0d74ac9c-ede2-4f4f-9c00-985c063d7995] Reasoning: This sentence is a direct quote of the statute regarding availability to a substantial portion of the public, providing no new interpretive value.
+  [ID: 7616c45c-41be-4616-a122-04fad3c3a63f] Reasoning: This sentence is a direct quote of the FCC's definition of CMRS, providing no new interpretive value.
+  [ID: 1b3a4029-6163-4a33-bf92-3750fd325927] Reasoning: This sentence discusses the weight of access against conduct affecting a substantial portion of the public, but it does not provide new interpretive context.
+  [ID: 15b30ea7-6f41-4137-ab7c-adb97ac302fc] Reasoning: This sentence reiterates the definition of commercial mobile services, providing no new interpretive value.
+  [ID: 7c867501-a391-4ded-9460-9f66ab3ad9bc] Reasoning: This sentence is a direct quote of the statute defining 'commercial mobile service', providing no new interpretive value.
+  [ID: 170f29a4-38e6-462c-a536-ca6e88b1baaa] Reasoning: This sentence is a direct quote of the definition of mobile service, providing no new interpretive value.
+  [ID: 9f555ce5-1d7d-4c7e-80f6-d5abb2489085] Reasoning: This sentence is a direct quote of the Commission's definition of commercial mobile service, providing no new interpretive value.
+  [ID: 0c2d9b4d-37ad-4ae5-b7c8-372cee112af2] Reasoning: This sentence is a direct quote of the statutory requirement for commercial mobile service, providing no new interpretive value.
+  [ID: fa46fee2-a220-44b1-b1ea-eeb82add1b67] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public in the context of trade or commerce, but does not provide new interpretive context.
+  [ID: 8983f73d-efa2-48ad-9640-ce8f07744fc7] Reasoning: This sentence states that there is no evidence of capacity to deceive a substantial portion of the public, but it does not provide new interpretive context.
+  [ID: 2ee1b94c-07f1-4f08-b8aa-d4a2f6b0c539] Reasoning: This sentence discusses public privacy concerns but does not provide relevant interpretive context regarding the phrase of interest.
+  [ID: 086d4221-4dfe-4066-b770-80e3cfff7cb4] Reasoning: This sentence reiterates the standard for deception without providing any new context or application.
+  [ID: c0723d40-7d04-4f6a-ab8b-217e37fb54f5] Reasoning: This sentence explains the Hangman Ridge test, which is relevant to the application of the term in legal claims, providing context for its use in practice.
+  [ID: b7f4d2b6-c514-4dd6-9375-2793ad6781a9] Reasoning: This sentence repeats the standard for deception without adding any interpretive context or application.
+  [ID: 00f17c3d-223b-4282-9707-db132c588dba] Reasoning: This sentence is a direct quote of the standard for deception, providing no new information or context.
+  [ID: 8d5e7a80-7bce-43c1-a08b-087c4c38c468] Reasoning: This sentence applies the concept to a specific situation, indicating how it can mislead the public, thus providing interpretive value.
+  [ID: 191d8274-adc3-4390-bedb-4f8e55e982c1] Reasoning: This sentence discusses a different context (fencing) and does not relate to the phrase of interest, making it irrelevant.
+  [ID: e6082edd-a24c-44c4-9af3-f81edd2f668a] Reasoning: This sentence repeats the standard for deception without adding any new context or application.
+  [ID: 52cdf08b-b087-413e-a2eb-3fcc8e487739] Reasoning: This sentence applies the concept to a specific situation regarding fees, providing context and interpretive value.
+  [ID: 6cc2b82a-4e46-40b7-b413-d21a73ccb696] Reasoning: This sentence reiterates the standard for deception without providing any new context or application.
+  [ID: 0ce80b15-6d4d-41c1-ac9e-f86ef26e4c89] Reasoning: This sentence is a direct quote of the standard for deception, providing no new information or context.
+  [ID: 8774ef6b-0c0e-49cf-8a90-d57ef778e70f] Reasoning: This sentence outlines the elements needed to establish a claim, providing a clear application of the term in legal practice.
+  [ID: ebe3e148-9863-4d01-9243-6c332491484b] Reasoning: This sentence reiterates the standard for deception without providing any new context or application.
+  [ID: d3f14867-f768-4d9e-855e-6ef8c55d837d] Reasoning: This sentence is a direct quote of the standard for deception, providing no new information or context.
+  [ID: cffa1995-230e-442e-a0d4-c3081c9bf47b] Reasoning: This sentence explains how to establish the first two elements of a claim, providing useful interpretive context.
+  [ID: 67439a87-219a-41e9-83e4-9c741eac993e] Reasoning: This sentence reiterates the standard for deception without providing any new context or application.
+  [ID: b478a8d4-1911-4269-ac6a-1dd63c34c4a5] Reasoning: This sentence discusses the elements needed to establish a claim, providing context and interpretive value.
+  [ID: 7d1eec5e-8654-4ede-8730-bea285534aa1] Reasoning: This sentence discusses the evidence needed to prove a claim, providing context and interpretive value.
+  [ID: d096073a-47d9-485e-b2b5-1a7530e7d60b] Reasoning: This sentence reiterates the standard for deception without providing any new context or application.
+  [ID: a9b2b506-8f99-4a03-b65b-3e3aa216d789] Reasoning: This sentence discusses the relevance of the capacity to deceive in establishing claims, providing useful interpretive context.
+  [ID: c27670f8-c00a-441b-b4eb-8ad58c14106b] Reasoning: This sentence explains how to establish an unfair or deceptive act, providing useful interpretive context.
+  [ID: 628d3350-a83b-4a47-999f-1f685aa41379] Reasoning: This sentence states that the capacity to deceive is a question of fact, which adds interpretive depth to the application of the term.
+  [ID: 5ed2769b-630e-4c64-8b3e-6ba001df2cd8] Reasoning: This sentence reiterates the standard for deception without providing any new context or application.
+  [ID: 05fd68dc-30db-4360-b2bd-e44ed012aae0] Reasoning: This sentence repeats the standard for deception without adding any interpretive context or application.
+  [ID: 27eec50d-1d64-44b2-9fde-b2a056e5ee47] Reasoning: This sentence reiterates the standard for deception without providing any new context or application.
+  [ID: 8b3a47ab-39f0-4441-9546-e05c03f46157] Reasoning: This sentence reiterates the standard for deception without providing any new context or application.
+  [ID: 4f3fde35-1455-40f6-8ddb-9a884c8ee080] Reasoning: This sentence discusses the requisite degree of skill in professions affecting the public but does not provide any specific interpretive context related to the phrase 'substantial portion of the public' as it pertains to the statute.
+  [ID: 1df2666b-692c-46b2-83b3-cf6e74c3d58a] Reasoning: This sentence cites various cases but does not provide any new interpretive context regarding 'substantial portion of the public' relevant to the source statute.
+  [ID: 2bf94703-fd1a-4e10-aeed-d494d833af7a] Reasoning: This sentence is a direct quote of the statute defining CMRS and does not add any interpretive value or context regarding the phrase 'substantial portion of the public'.
+  [ID: 401d7ca1-c1d4-4558-a08c-6a66a304b44b] Reasoning: This sentence explains the FCC's determination regarding private paging services and their relation to the CMRS definition, providing context for how 'substantial portion of the public' is applied in practice.
+  [ID: 6fda7a86-0196-4b69-96a5-7a6bb0113f5b] Reasoning: This sentence mentions a litigant group and the public but does not provide any specific interpretive context related to the phrase 'substantial portion of the public' as it pertains to the statute.
+  [ID: caf3332f-6d99-491d-b571-d30e71c3466f] Reasoning: This sentence is a direct quote of the statute defining CMRS and does not add any interpretive value or context regarding the phrase 'substantial portion of the public'.
+  [ID: a29cc28a-a201-43e0-9a56-bd85dcdc63d7] Reasoning: This sentence provides an interpretation by the Commission regarding the availability of services to a substantial portion of the public, adding valuable context to the phrase.
+  [ID: c8ae40bf-85e5-47de-ba51-dc5d7765e893] Reasoning: This sentence explains the Commission's stance on what constitutes availability to the public, providing critical interpretive guidance on the phrase 'substantial portion of the public'.
+  [ID: fa6a7f98-2941-4bc4-8ead-aceb449b432e] Reasoning: This sentence is a direct quote of the statute defining CMRS and does not add any interpretive value or context regarding the phrase 'substantial portion of the public'.
+  [ID: 9a3cbac4-0cbc-434a-a353-35db63376731] Reasoning: This sentence highlights a distinction between two orders regarding the interpretation of 'substantial portion of the public', providing useful interpretive context.
+  [ID: 8885a009-9c96-4800-8d52-c9f63c2094c5] Reasoning: This sentence discusses wholesale carriers and their relation to the phrase 'substantial portion of the public', providing relevant context for its application.
+  [ID: 9d524cad-5b03-4266-b74d-f26a0f33f3b9] Reasoning: This sentence discusses the definition of a common carrier and its relation to the public, but does not provide specific interpretive context regarding the statute.
+  [ID: f39d6229-b4eb-451e-9d08-422b00a5a4f6] Reasoning: This sentence defines CMRS but does not provide any new interpretive context regarding the phrase 'substantial portion of the public'.
+  [ID: 73ec7605-3fb2-42b5-a633-1b35f32edce5] Reasoning: This sentence discusses a case involving gas supply to the public but does not provide specific interpretive context related to the statute.
+  [ID: 18199a85-99dd-4ab4-92a8-9d1991377893] Reasoning: This sentence is a direct quote from a case and does not provide any new interpretive context regarding the phrase 'substantial portion of the public'.
+  [ID: c7fb4777-510f-4bc2-837d-8dc68bf92836] Reasoning: This sentence is a reiteration of a previous quote and does not add any new interpretive context regarding the phrase 'substantial portion of the public'.
+  [ID: 40aa0d70-4d71-4cf6-8b99-70af03a7fb17] Reasoning: This sentence is a direct quote from a case and does not provide any new interpretive context regarding the phrase 'substantial portion of the public'.
+  [ID: 18bbcc97-242c-482c-8744-9dc08947cb72] Reasoning: This sentence is a direct quote from a case and does not provide any new interpretive context regarding the phrase 'substantial portion of the public'.
+  [ID: db123c94-99e1-49e3-b821-e3c8f56bd042] Reasoning: This sentence is a direct quote from a case and does not provide any new interpretive context regarding the phrase 'substantial portion of the public'.
+  [ID: d11930ba-7e86-46b1-93b4-a7b1a496463c] Reasoning: This sentence states that a service serves a substantial portion of the public but does not provide any specific interpretive context related to the statute.
+  [ID: 1019e4e6-e052-4432-af26-caca78923c7a] Reasoning: This sentence discusses the Public Review Draft SYP but does not provide any specific interpretive context related to the phrase 'substantial portion of the public'.
+  [ID: fbf3176e-3a08-4e70-aa57-5bfd074e5158] Reasoning: This sentence discusses the appeal of a newspaper to a substantial portion of the public but does not provide specific interpretive context related to the statute.
+  [ID: d9451d9e-4c9e-4391-85f5-ca3b960962b4] Reasoning: This sentence is a direct quote from a case and does not provide any new interpretive context regarding the phrase 'substantial portion of the public'.
+  [ID: b6736888-a23d-4fcc-9e8f-f1039c750d02] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public in the context of unfair or deceptive acts, but it does not provide any new interpretive context or application beyond the statutory language.
+  [ID: db3a500d-4dcc-4d81-9c1a-918e6d5dba90] Reasoning: This sentence reiterates the elements needed to establish a deceptive act, closely mirroring statutory language without adding interpretive depth or context.
+  [ID: 1453674e-63bb-4b20-ac85-daf5285c971d] Reasoning: This sentence repeats the statutory requirement regarding the capacity to deceive a substantial portion of the public without providing additional context or application.
+  [ID: 41f69806-0a20-41b9-88e4-205d1524d869] Reasoning: This sentence discusses the failure to create a question of material fact regarding the capacity to deceive, but it does not add new interpretive context or application.
+  [ID: 886cfdcf-71f9-4367-ae79-4f7d9a584cc8] Reasoning: This sentence reiterates the requirement for showing capacity to deceive a substantial portion of the public, closely mirroring statutory language without additional context.
+  [ID: 39076e3a-9600-4b60-93cc-b58034f8f5d3] Reasoning: This sentence provides a specific case application where the term 'capacity to deceive a substantial portion of the public' is applied to a particular situation, adding interpretive value.
+  [ID: 77654703-9649-45d6-b1bc-5e30229e11b1] Reasoning: This sentence discusses the public interest in relation to misrepresentations and their capacity to deceive, providing context that enhances understanding of the term.
+  [ID: beb6a456-7f1e-452d-91d3-8e492e07ed7a] Reasoning: This sentence asserts that actions had the capacity to deceive a substantial portion of the public, but it does not provide additional context or application.
+  [ID: 470bd035-dda8-455c-83e0-c0eebf93e9db] Reasoning: This sentence defines an unfair or deceptive act in terms of its capacity to deceive, closely mirroring statutory language without additional context.
+  [ID: 04ad90f2-98d0-4508-ac92-8a7ef61eb146] Reasoning: This sentence reiterates the definition of unfair or deceptive acts without providing new interpretive context or application.
+  [ID: c3389000-c308-4d65-b82e-c60c6b053b3e] Reasoning: This sentence discusses the lack of evidence regarding the capacity to deceive, but it does not add new interpretive context or application.
+  [ID: 6c1f5431-ff28-40cb-8e64-cccdf0ffe28e] Reasoning: This sentence discusses the failure to show capacity to deceive, but it does not provide additional context or application.
+  [ID: 641f36c5-386d-45df-a3ba-012741bc5fe6] Reasoning: This sentence discusses the dismissal of a CPA claim due to failure to show capacity to deceive, but it does not add new interpretive context.
+  [ID: bd965e6f-8624-4288-902b-cdbeb2d835f3] Reasoning: This sentence references a case that discusses the capacity to deceive, but it does not provide new interpretive context or application.
+  [ID: 4d972c45-b3f1-42a9-8c47-19a4540d751a] Reasoning: This sentence reiterates the requirement for showing capacity to deceive without providing additional context or application.
+  [ID: 67e78328-f699-4915-9b11-da11f76d57ee] Reasoning: This sentence discusses the limited number of consumers and their inability to qualify as a substantial portion of the public, providing some interpretive context.
+  [ID: 9aac88cc-fc08-46ab-a659-cd2494e840b5] Reasoning: This sentence discusses a scheme marketed to a select audience and its lack of capacity to deceive a substantial portion of the public, providing context that aids interpretation.
+  [ID: 19555723-f61a-496e-ad7a-49f67633f8c4] Reasoning: This sentence states that whether an act has the capacity to deceive is a question of fact, which adds interpretive depth to the understanding of the term.
+  [ID: d145501d-a609-4855-bdc7-684b84a0a144] Reasoning: This sentence discusses the courts' approach to determining what constitutes a substantial portion of the public, providing interpretive context.
+  [ID: 8856e069-53dc-4763-b547-4905da4daa67] Reasoning: This sentence discusses the application of the requirement regarding capacity to deceive, providing context that enhances understanding of the term.
+  [ID: f622c0fa-4d86-4a86-b0d2-c29aee5d5a46] Reasoning: This sentence discusses the court's view on wealthy investors and their qualification as a substantial portion of the public, providing interpretive context.
+  [ID: 2abb2107-4830-484e-9116-cf2240b9824e] Reasoning: This sentence references a case that illustrates the capacity to deceive a substantial portion of the public, providing a specific application that adds interpretive value.
+  [ID: 6f8739a4-8d6f-4210-b2ae-0324f27920de] Reasoning: This sentence repeats the elements needed to establish a deceptive act without providing new interpretive context or application.
+  [ID: 2b47d1cf-eb44-44ac-b3c2-b5a5e7678471] Reasoning: This sentence reiterates the requirement for showing capacity to deceive without providing additional context or application.
+  [ID: bb70310f-c0ce-4cd2-b2f3-9f51475b76a8] Reasoning: This sentence poses a question about the capacity to deceive, but it does not provide new interpretive context or application.
+  [ID: 6bd53491-0dce-490c-9f31-d4dc6bdd7436] Reasoning: This sentence discusses the requirement for advertising to reach a substantial portion of the public, referencing case law. However, it primarily quotes a case without adding significant interpretive context.
+  [ID: 8efc49e2-a029-4083-9694-c168b17441e8] Reasoning: This sentence states that a statement is deceptive to a substantial portion of the public but lacks further context or application, making it largely redundant.
+  [ID: b18d8055-1fe4-4b90-92dc-98f77ffa2215] Reasoning: This sentence asserts that an unfair or deceptive act must have the capacity to deceive a substantial portion of the public, but it does not provide additional context or application.
+  [ID: a52c7d83-6bbc-4690-80d1-06828ebb7dc7] Reasoning: This sentence defines CMRS and includes the phrase of interest, but it is a direct quote from the statute and does not provide interpretive value.
+  [ID: c448471a-0dd3-4e0a-a24d-f56bfbca0cfc] Reasoning: This sentence discusses the FCC's determination regarding private paging services and their availability to a substantial portion of the public, providing context for regulatory interpretation.
+  [ID: d5722283-b962-40d4-b004-5eb3dc57edb3] Reasoning: This sentence references a court case that clarifies the elements of a claim under the Washington CPA, specifically mentioning the capacity to deceive a substantial portion of the public, adding interpretive context.
+  [ID: 167e2648-643b-49a2-a3c5-956742182efb] Reasoning: This sentence discusses the potential impact of adverse publicity on a fair trial, but it does not provide relevant context regarding the phrase of interest.
+  [ID: c6c86343-20e0-4020-9880-9d747905f235] Reasoning: This sentence is a direct quote from the statute and does not provide any interpretive value.
+  [ID: b91c4099-a228-4e7c-916d-e7413a8f9a2c] Reasoning: This sentence outlines how a plaintiff can establish an unfair or deceptive act, mentioning the capacity to deceive a substantial portion of the public, but lacks deeper interpretive context.
+  [ID: b1b0f27a-89d2-4780-89b9-af567ff00091] Reasoning: This sentence discusses allegations of violations of the CPA, specifically mentioning the capacity to deceive a substantial portion of the public, providing relevant context.
+  [ID: d6c35861-841e-4dd3-9278-d255f0444ca1] Reasoning: This sentence discusses a case involving misrepresentation and its impact on a substantial portion of the public, providing context for the application of the law.
+  [ID: 261f5800-928f-4972-bac2-bf1b74d196dc] Reasoning: This sentence discusses the potential for misrepresentation to deceive a substantial portion of the public, but it does not provide significant additional context.
+  [ID: bd1bee06-7743-4546-8365-8586b67691a0] Reasoning: This lengthy sentence provides a detailed account of a case involving transportation services and mentions serving a substantial portion of the public, but it lacks clarity and focus on the phrase of interest.
+  [ID: ad2783e2-6b01-4ddc-b6eb-9b585162f7e5] Reasoning: This sentence is a direct quote from the statute and does not provide any interpretive value.
+  [ID: f3ff1c70-958e-40dd-b79a-e1c7a1990320] Reasoning: This sentence discusses public privacy concerns but does not relate to the phrase of interest in a meaningful way.
+  [ID: 75902cac-5f9d-4e25-b4ec-bfde9a671c76] Reasoning: This sentence discusses competition and public interest but does not provide relevant context regarding the phrase of interest.
+  [ID: 30e09527-8a60-4d62-a052-7c15097ed5c9] Reasoning: This sentence compares an operating agreement to sham organizations but does not provide relevant context regarding the phrase of interest.
+  [ID: c869467a-52cf-4c04-b3cb-67bbf3f1745a] Reasoning: This sentence is a direct quote from the statute and does not provide any interpretive value.
+  [ID: 9dae5e11-9729-4403-b123-d6884e5e2cbc] Reasoning: This sentence discusses misleading statements and their impact on a substantial portion of the public, providing relevant context for the application of the law.
+  [ID: a155c9d6-acf0-4496-b24e-e1f853ed6bae] Reasoning: This sentence references a legal standard regarding the capacity to deceive a substantial portion of the public, providing relevant context for legal interpretation.
+  [ID: ff85af94-8db9-4c63-bc62-8c896dffd9e4] Reasoning: This sentence discusses the potential impact of a warning on public attendance but does not provide relevant context regarding the phrase of interest.
+  [ID: defb31d1-ce15-4a98-90bd-0cab212e4958] Reasoning: This sentence discusses public regulation and the definition of serving a substantial portion of the public, providing relevant context for legal interpretation.
+  [ID: f0e192a1-30f5-480d-9de3-19d1c1c1dff5] Reasoning: This sentence discusses newspaper appeal but does not provide relevant context regarding the phrase of interest.
+  [ID: 709a0e96-b583-45bf-b759-7cf93933eb09] Reasoning: This sentence discusses legislative findings regarding public road use but does not provide relevant context regarding the phrase of interest.
+  [ID: 95c1a3b0-4af0-419d-af60-2ef0fd431f38] Reasoning: This sentence references various cases related to deceptive practices and the capacity to deceive a substantial portion of the public, providing relevant legal context.
+  [ID: 97290703-4a4a-4cd6-9f1e-cdb056e3ce05] Reasoning: This sentence states that a practice is unfair or deceptive if it can deceive a substantial portion of the public, which is a direct paraphrase of the statutory language without additional context.
+  [ID: 7195fe91-d836-4141-8da8-07259a95bce8] Reasoning: This sentence repeats the definition of unfair or deceptive acts without providing any new interpretive context or application.
+  [ID: a980ff02-2678-4691-853a-cf5ac0e1a8a0] Reasoning: While this sentence mentions the capacity to deceive a substantial portion of the public, it does not add any new interpretive context or application beyond what has already been stated.
+  [ID: 1867e9e3-c129-4964-bc2a-a440b9513f6e] Reasoning: This sentence discusses casual fencing and its implications for public streets, which is unrelated to the phrase of interest and does not provide relevant context.
+  [ID: 8b88dc0b-c6e0-4483-a902-68c4ec272887] Reasoning: This sentence reiterates the requirement to show capacity to deceive a substantial portion of the public without adding any new interpretive insights.
+  [ID: db5b66dd-499b-4ea5-b658-dfc1158d247e] Reasoning: This sentence is a restatement of the legal standard regarding deceptive acts, providing no new information or context.
+  [ID: 6c6f1034-483d-4ddc-8219-a36ec2ebf49a] Reasoning: This sentence repeats the standard for demonstrating an unfair deceptive act without providing any additional context or application.
+  [ID: 77e3dbd2-fc28-49f1-8315-c08e523423bf] Reasoning: This sentence discusses privacy invasion in a driving context, which is unrelated to the phrase of interest and does not provide relevant context.
+  [ID: 82f8760c-0bfe-4255-b2e4-572970d52437] Reasoning: This sentence states that there was no unfair or deceptive act without providing any new interpretive context or application.
+  [ID: af4971c9-aea7-4c53-967f-0b11db543b7f] Reasoning: This sentence reiterates the requirement for conduct to have a tendency or capacity to deceive a substantial portion of the public, without adding new insights.
+  [ID: 864b97a4-3c7e-4dd3-b2b7-2187d28bb8a8] Reasoning: This sentence states that conduct need only have the capacity to deceive a substantial portion of the public, which is a restatement of existing legal standards.
+  [ID: 28423d66-8396-4a59-8e9f-5e114a96f5e3] Reasoning: This sentence discusses establishing elements of a consumer protection action but does not provide new interpretive context regarding the phrase of interest.
+  [ID: 4913d361-6200-464d-a140-a2a837b64fc0] Reasoning: This sentence repeats the requirement to show capacity to deceive a substantial portion of the public without adding new insights.
+  [ID: 82d966a2-0467-4bd2-ac63-2b96cd484afd] Reasoning: This sentence states that conduct must have a tendency to deceive a substantial portion of the public, which is a restatement of existing legal standards.
+  [ID: c33d8ccc-98db-4d8d-9a2b-a7eaedc73982] Reasoning: This sentence discusses a specific case but ultimately reiterates the requirement of capacity to deceive a substantial portion of the public without new context.
+  [ID: 64c71827-0f20-4d37-b7e6-15088b4d0377] Reasoning: This sentence states that absent proof of capacity to deceive, the claim fails, which is a reiteration of existing legal standards.
+  [ID: 86fc5dca-e29b-4adc-bf5a-6bb44d3d6f38] Reasoning: This sentence repeats the requirement to show capacity to deceive a substantial portion of the public without adding new insights.
+  [ID: 020c99ba-96c9-405b-817d-f77e58c48724] Reasoning: This sentence discusses the burden of proof in a specific case but ultimately reiterates the requirement of capacity to deceive without new context.
+  [ID: 8733f976-2ab0-40af-8760-69dd1f28ddae] Reasoning: This sentence describes a specific case of deceptive conduct but ultimately reiterates the requirement of capacity to deceive without new context.
+  [ID: c9736d45-51ba-40e7-acee-1f49fc773184] Reasoning: This sentence discusses a policy that excludes a substantial portion of the public, which is relevant but does not provide new interpretive context regarding the phrase of interest.
+  [ID: ea523971-1cac-464b-aec7-23a367e81bc6] Reasoning: This sentence discusses a standard sales approach but ultimately reiterates the requirement of capacity to deceive without new context.
+  [ID: 030c2c13-7d40-4fdc-b698-3019efdca391] Reasoning: This sentence states that an unfair or deceptive act may be established by showing capacity to deceive, which is a restatement of existing legal standards.
+  [ID: 62fd0829-5a48-40a2-b55c-b16f9d95c4c3] Reasoning: This sentence states that conduct has the tendency to deceive a substantial portion of the public, which is a restatement of existing legal standards.
+  [ID: c6c4723b-1c86-4046-85ab-6d09b75fd284] Reasoning: This sentence discusses the impact of a failure to provide insurance on the public, which is relevant but does not provide new interpretive context regarding the phrase of interest.
+  [ID: baf77255-1368-4e35-865c-f5e4a8449f20] Reasoning: This sentence reiterates the requirement for conduct to have a tendency or capacity to deceive a substantial portion of the public, without adding new insights.
+  [ID: 3afade7d-c273-4026-89d5-f8fe7882a83b] Reasoning: This sentence discusses the need for advertising to reach a substantial portion of the public, which relates to the phrase of interest but does not provide deeper interpretive context or application.
+  [ID: a3ab3b3f-5a57-4a67-addc-05c2bb50422b] Reasoning: This sentence implies that prior to the Labeling Act, a substantial portion of the public was underinformed about smoking dangers, providing historical context but lacking direct application to the phrase of interest.
+  [ID: c4a771c7-cb0d-4ae9-9e63-41a21f9e6cc1] Reasoning: Similar to the previous sentence, this one reiterates the underinformed status of the public regarding smoking dangers, offering no new interpretive insights.
+  [ID: 22bc66bc-b254-4620-b281-a49c078a2afe] Reasoning: This sentence discusses the capacity to deceive substantial portions of the public in the context of a CPA element, providing relevant legal application of the phrase.
+  [ID: cebcef44-871a-434c-828a-57a7da42bd1f] Reasoning: This sentence is a direct quote from the statute defining 'commercial mobile service' and does not add any interpretive value.
+  [ID: c46a1541-07d0-4802-9ad9-9e007e6e66d2] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public, but lacks further context or application, making it less valuable.
+  [ID: 925d62ba-49c7-4904-950a-2ebbd07ec286] Reasoning: This sentence also addresses the capacity to deceive a substantial portion of the public, relevant to the phrase but lacking depth or application.
+  [ID: 95ebd51e-fe12-4396-977e-2ab6d3cd7838] Reasoning: This sentence discusses public opinion regarding a trial, mentioning a substantial portion of the public but not providing relevant legal context or application.
+  [ID: 0a163419-2b05-4ab9-ab8b-e9b9344736ed] Reasoning: This sentence outlines the proof of an unfair or deceptive act, directly relating to the phrase of interest and providing legal context.
+  [ID: c18fcee5-9568-426e-82e7-df211d7fc2f2] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public in the context of trade or commerce, providing relevant legal application.
+  [ID: ae91ab5b-1ad9-4b7a-a9cc-6454feed16da] Reasoning: This sentence provides a legal standard for determining capacity to deceive a substantial portion of the public, offering relevant context.
+  [ID: 779ac13b-04a1-4e50-9ccf-4d5fef1f5303] Reasoning: This sentence states that the argument about capacity to deceive has been established, but does not add new interpretive value.
+  [ID: c05a7eb9-ddd2-4f15-add6-7dd1e8f34a0b] Reasoning: This sentence is a quote from a case that does not provide new interpretive value regarding the phrase of interest.
+  [ID: 8d5b3cf6-8da0-4a13-a13a-5f4cf6e3d00e] Reasoning: This sentence discusses the weight of financial records against public access, mentioning substantial portions of the public but lacking direct relevance to the phrase of interest.
+  [ID: 310339f7-a12c-4bc1-a632-f90dfbd78672] Reasoning: This sentence reiterates the legal standard for capacity to deceive a substantial portion of the public, providing relevant context.
+  [ID: e3a1823e-6c65-4f4d-b6ef-49fefaf1327a] Reasoning: This sentence examines whether an unfair act had the capacity to deceive a substantial portion of the public, providing relevant legal context.
+  [ID: f7c7d350-138e-45eb-8145-9792342b3b9b] Reasoning: This sentence discusses actions that demonstrate the capacity to deceive a substantial portion of the public, providing relevant legal application.
+  [ID: a5d46ca6-5755-458a-8bc2-61f873845ef8] Reasoning: This sentence discusses public perception of the 'Pinehurst' name, mentioning a substantial portion of the public but lacking direct relevance to the phrase of interest.
+  [ID: b29a2083-f621-4d37-a153-e9e386666c18] Reasoning: This sentence states that a respondent is providing a service advantageous to a substantial portion of the public, but lacks deeper interpretive context.
+  [ID: 6d0ce68c-9ff5-4d39-9603-69531f9a0776] Reasoning: This sentence discusses public familiarity with slogans, mentioning a substantial portion of the public but lacking direct relevance to the phrase of interest.
+  [ID: 0f63e70e-5143-4b4e-95d0-a9fef0caa33a] Reasoning: This sentence discusses the concept of capacity to deceive a substantial portion of the public, providing relevant legal context.
+  [ID: 0979c516-eb6e-41b2-89cd-a4bd9ce5ea86] Reasoning: This sentence states that there is no evidence of practices that could deceive a substantial portion of the public, but lacks deeper interpretive context.
+  [ID: 21194da8-1e23-43eb-8675-b1511f218e75] Reasoning: This sentence mentions public enjoyment of a show but does not provide relevant legal context or application regarding the phrase of interest.
+  [ID: 618f2b5f-e036-48f7-8a82-189355f83e6a] Reasoning: This sentence reiterates the weight of private matters against public access, mentioning substantial portions of the public but lacking direct relevance to the phrase of interest.
+  [ID: adf21786-5b92-413f-9fc1-7de173624b63] Reasoning: This sentence is a repeat of the previous one, providing no new information or context.
+  [ID: 17428134-535c-4323-9c84-87df788c2e5a] Reasoning: This sentence paraphrases the definition of CMRS and includes the phrase 'substantial portion of the public' but does not provide any new interpretive context or application.
+  [ID: 52b7018b-6440-4bbd-8105-ebe73888802e] Reasoning: This sentence mentions a substantial portion of the public in a general context but does not provide any legal interpretation or application related to the phrase.
+  [ID: dadc73b4-df6c-4603-9235-1bfe59777b56] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public but lacks specific legal context or application, making it less valuable.
+  [ID: 77b04c83-13a7-49a7-9796-c3bd68f34b8b] Reasoning: This sentence references a case and discusses the public's understanding of representations, providing some context for the phrase but still lacks depth in legal interpretation.
+  [ID: 4a8b411b-c859-4439-88bf-31497a88bcdd] Reasoning: This sentence provides evidence of misleading representations that induced a substantial portion of the public to purchase products, adding context to the phrase's application.
+  [ID: c159c3c3-4ba5-45ee-8b91-061dfcc7f985] Reasoning: This sentence uses the phrase in a hypothetical context regarding privacy invasion, but it does not provide a clear legal application or interpretation.
+  [ID: 892c49c8-a20a-47e9-9d7a-1f3c494492d3] Reasoning: This sentence states that an act is unfair or deceptive if it has the capacity to deceive a substantial portion of the public, reiterating a legal standard without adding new context.
+  [ID: 52fa3d76-11db-43a2-bdea-ca2f5528c1f8] Reasoning: This sentence argues that a small number of consumers cannot qualify as a substantial portion of the public, providing a critical perspective on the term's application.
+  [ID: 6195427b-1c5e-4a08-ae02-8efd72b715b3] Reasoning: This sentence describes an obstruction affecting a substantial portion of the public but does not provide legal context or application, making it less valuable.
+  [ID: 060009e0-ae1c-4b41-a17f-e61d5de1f6b2] Reasoning: This sentence mentions that vicuna was known to a substantial portion of the public but lacks legal context or application.
+  [ID: 9b159829-821f-4d56-a0d0-aa2cdfacc101] Reasoning: This sentence discusses the weight of financial records against conduct affecting a substantial portion of the public, providing some context but lacking depth.
+  [ID: 3499c0c1-4b81-4f14-9853-7fa349f88004] Reasoning: This sentence reiterates the weight of private matters against conduct affecting a substantial portion of the public, lacking new interpretive context.
+  [ID: 3297764e-ff61-45f4-8501-de6955f477eb] Reasoning: This sentence provides evidence that a substantial portion of the public is misled by advertisements, adding context to the phrase's application.
+  [ID: 00ff58a7-cf27-40bf-a7b3-9c40becfc452] Reasoning: This sentence questions the evidence supporting the Commission's finding regarding a substantial portion of the public, providing critical context.
+  [ID: cca24398-0933-4985-ac1c-db696ef1e5cc] Reasoning: This sentence discusses the withdrawal of public domain lands but does not relate to the legal interpretation of 'substantial portion of the public'.
+  [ID: 6b8873e0-ba09-4570-acf8-ef4c11f58b1a] Reasoning: This sentence reiterates the capacity to deceive a substantial portion of the public without providing new context or application.
+  [ID: ba5cbd14-4aa6-493f-a08e-2cfe5c074ce5] Reasoning: This sentence states that no evidence was presented regarding the capacity to deceive a substantial portion of the public, providing some context but lacking depth.
+  [ID: f99e7dd4-426c-45f2-87b0-bbfc0de2a40e] Reasoning: This sentence describes the requirement for a plaintiff to plead an unfair or deceptive act that has the capacity to deceive a substantial portion of the public, reiterating a legal standard.
+  [ID: c8e2d54e-70ee-4d85-a75a-185a61259583] Reasoning: This sentence discusses the appropriateness of summary judgment based on the lack of capacity to deceive a substantial portion of the public, providing some context but lacking depth.
+  [ID: 0be6da13-9e9f-4433-8803-7c9908edaf05] Reasoning: This sentence discusses the potential impact on public relations and the public's dealings with plaintiffs, providing context for the phrase's application.
+  [ID: 5372c120-7f3b-42d1-805b-a74c7ceb0a62] Reasoning: This sentence discusses the potential impact on public relations and the public's dealings with plaintiffs, providing context for the phrase's application.
+  [ID: 6bf1ab35-ea1c-4102-a968-787561584b0a] Reasoning: This sentence references a case discussing the invasion of privacy affecting a substantial portion of the public, providing some context but lacking depth.
+  [ID: ec7b5432-8862-4ac4-a947-0529d6e4b9ec] Reasoning: This sentence provides a definition of commercial mobile service that includes the phrase but does not add interpretive context or application.
+  [ID: 7dbca72e-4aa3-4d14-b8be-aa2a56e4b01a] Reasoning: This sentence discusses the public's access to media but does not provide a clear legal application or interpretation of the phrase.
+  [ID: 93dd4433-74be-4a42-a84b-252cc6659052] Reasoning: This sentence references a court's reasoning regarding public privacy but does not provide a clear legal application or interpretation of the phrase.
+  [ID: b95c07f4-98f7-4d34-ad95-978e6c9c21ae] Reasoning: This sentence discusses a court's finding regarding the capacity to deceive a substantial portion of the public, but it does not provide new interpretive context or application beyond the basic assertion.
+  [ID: eb80b0ee-be0c-488c-82e4-877484295291] Reasoning: The sentence mentions the court's affirmation regarding the capacity to deceive a substantial portion of the public but lacks further analysis or context, making it largely redundant.
+  [ID: 411b4948-2a78-48c5-bc4a-ae187043bfbf] Reasoning: This sentence refers to speculation about the capacity to deceive a substantial portion of the public without providing any substantive legal analysis or context.
+  [ID: 4578b0fd-a8ae-4a83-8466-1ffc1ada26a5] Reasoning: While it states that conduct need not be intentional to be unfair or deceptive, it does not elaborate on the implications or applications of this principle, rendering it somewhat redundant.
+  [ID: f01804fe-e748-41eb-9d35-84b3d76a9c55] Reasoning: This sentence questions whether actions have the capacity to deceive a substantial portion of the public but does not provide any interpretive depth or context.
+  [ID: d6c7a9f9-1098-49a1-b82c-b3d30080886d] Reasoning: This sentence outlines the elements needed to establish an unfair or deceptive act but does not provide new insights or applications regarding the capacity to deceive.
+  [ID: 87e050c0-d4ad-4a28-b07b-8ed7ecda1bc7] Reasoning: The sentence states that a plaintiff must show the capacity to deceive a substantial portion of the public but does not add any interpretive context or application.
+  [ID: 29bc8384-ef7d-4498-82b8-808641ce9e36] Reasoning: This sentence raises a factual question about the capacity to deceive a substantial portion of the public but lacks further interpretive context or analysis.
+  [ID: 1a353977-a49a-4923-8647-ccab7be7de53] Reasoning: This sentence discusses the potential for the language in a rental agreement to deceive a substantial portion of the public, but it does not provide new interpretive insights.
+  [ID: 718644a9-1fbc-41de-9236-a08e5f50c2f2] Reasoning: This sentence states that a claimant need not prove reliance but must show the capacity to deceive, which is a reiteration of existing principles without new context.
+  [ID: a5e5a24c-cec8-4442-ad03-cd4c3ca9ebd2] Reasoning: This sentence discusses obstruction in public spaces but does not relate directly to the interpretive context of the phrase 'substantial portion of the public' in the statute.
+  [ID: b73fc42a-e40f-4261-b67f-4bacf66a6091] Reasoning: This sentence states that something serves a substantial portion of the public but does not provide any interpretive context or application.
+  [ID: 91ad6835-c7b6-4b1d-9600-6b9dd2bdc5d3] Reasoning: This sentence reiterates that intent to deceive is not necessary, which is a restatement of existing legal principles without new insights.
+  [ID: cc8d59bb-dc13-451f-94f4-7e4e5139d639] Reasoning: This sentence discusses the question of whether acts had the capacity to deceive but does not provide new interpretive context or application.
+  [ID: 8935b09c-b4a2-457f-971b-1f6e9a7853df] Reasoning: This sentence repeats speculation about the capacity to deceive without providing any substantive legal analysis or context.
+  [ID: 15882ea9-17ef-4df4-bf02-4ff1a5b327b6] Reasoning: This sentence mentions that a substantial portion of the public was at risk but does not provide any new interpretive context or application.
+  [ID: 9e8c9e05-74fa-4517-9daa-af9fd6eac8e1] Reasoning: This sentence states that MEI failed to present evidence regarding the capacity to deceive, but it does not add any interpretive context or application.
+  [ID: 1231b50f-1664-485c-8556-a7bdb0d4c869] Reasoning: This sentence discusses a similar issue but does not provide new insights or applications regarding the capacity to deceive a substantial portion of the public.
+  [ID: 226cb53e-d9e9-443b-8e8e-cb43eba55766] Reasoning: This sentence reiterates that a plaintiff need not show intent to deceive, which is a restatement of existing legal principles without new insights.
+  [ID: e345159a-d563-42bf-9095-2e069ee11bfc] Reasoning: This sentence states that collection notices have the capacity to deceive a substantial portion of the public but does not provide new interpretive context or application.
+  [ID: ed06cd7c-e2aa-467b-ac25-8c41b41da08e] Reasoning: This sentence cites case law but does not provide new insights or applications regarding the capacity to deceive a substantial portion of the public.
+  [ID: 6566754a-0f45-4000-b378-cc2ef14e2852] Reasoning: This sentence questions how alleged complicity had the capacity to deceive but does not provide any substantive legal analysis or context.
+  [ID: 75d40e9d-94a2-4411-a346-d60c9cc5283c] Reasoning: This sentence discusses the reversal of a trial court's award due to lack of evidence regarding the capacity to deceive, but it does not add new interpretive context.
+  [ID: 5ca35e23-3fa9-4b87-89ce-ce8377d8ce2f] Reasoning: This sentence states that mere speculation is insufficient to survive summary judgment, reiterating existing legal principles without new insights.
+  [ID: 0bea4abd-5f4d-4a41-8f80-6ec71a2fe471] Reasoning: This sentence restates that a plaintiff need not show intent to deceive, which is a reiteration of existing legal principles without new insights.
+  [ID: 144e1716-5bf7-4aa0-bd01-c998bea9bc3d] Reasoning: This sentence discusses the rights of bank depositors but does not provide any specific application or interpretation of 'substantial portion of the public' in relation to the statute. It is largely irrelevant to the phrase of interest.
+  [ID: 8df93b98-0a9a-4037-ad50-ddba6219885d] Reasoning: This sentence references a case where a term had the capacity to deceive a substantial portion of the public, providing context for how the phrase is applied in legal practice, thus adding interpretive value.
+  [ID: cb336486-670c-4b1b-afab-53af7c37805b] Reasoning: This sentence mentions that club facilities are available to a substantial portion of the public, but it lacks depth in explaining the implications or context of this availability.
+  [ID: ef9e4708-9e2e-4245-8ccf-7d20dbbbe6c7] Reasoning: This sentence discusses the potential impact of a fare increase on a substantial portion of the public, providing a context that relates to public interest and legal principles, thus offering some interpretive value.
+  [ID: 8059e202-7c8f-4417-87bb-9350c376d4c3] Reasoning: This sentence discusses learning opportunities and benefits to the public but does not specifically relate to the legal interpretation of 'substantial portion of the public' in a statutory context.
+  [ID: 6fe350b5-d0e8-4914-bc48-a11f9ccd01a3] Reasoning: This sentence questions whether a substantial portion of the public was alarmed, but it does not provide any legal context or application of the phrase, making it largely irrelevant.
+  [ID: 1397b4ee-10ff-480f-84e5-17731586aa3c] Reasoning: This sentence mentions the compilation of public records but does not elaborate on the implications of 'substantial portion of the public' in a legal context.
+  [ID: ef7b3915-c761-43c3-badd-70f02f9b2820] Reasoning: This sentence discusses privacy invasion in relation to a substantial portion of the public, providing a relevant context that touches on legal implications.
+  [ID: 343537f4-bb74-4114-88be-2cda0a4f9b94] Reasoning: This sentence discusses the implications of granting property rights that would affect a substantial portion of the public, providing a relevant legal context.
+  [ID: 388022e6-b1a0-4af2-9761-990280b97dd3] Reasoning: This sentence discusses the hardship caused by deception to a substantial portion of the public, providing a relevant context for legal interpretation.
+  [ID: 001fad1f-b387-4804-844a-dad7656be00d] Reasoning: This sentence discusses the Board's responsibility and expenditure of public funds, but it does not provide specific interpretive context for 'substantial portion of the public'.
+  [ID: 1ecba965-d07b-4c0b-a20c-659406125a83] Reasoning: This sentence is a duplicate of the previous one and does not add any new information or context.
+  [ID: 2ae754d1-d18a-40e6-921e-db9e05d4ae1c] Reasoning: This sentence discusses the public's lack of information about rights due to prior prohibitions, providing context for how a substantial portion of the public is affected.
+  [ID: cbe62430-9d8e-47f1-be8c-6e7031472ad5] Reasoning: This sentence discusses the violation of equal protection and the inability of a substantial portion of the public to comply with a law, providing relevant legal context.
+  [ID: b7d29578-e819-4816-9ac6-4fc36b8ad734] Reasoning: This sentence discusses the cost of compliance affecting a substantial portion of the public, providing relevant legal context regarding equal protection.
+  [ID: d6c92750-aeca-4f91-af08-fc33cf939b42] Reasoning: This sentence discusses the nature of property used by a substantial portion of the public, providing context for how the phrase is applied in legal discussions about nuisances.
+  [ID: 976b40e8-a123-4d53-8fc2-786fd95aa22f] Reasoning: This sentence is a direct quote of the statute and does not provide any new interpretive context or application, making it redundant.
+  [ID: 663425b1-6830-4dd8-8d2b-e5f8a00dccc2] Reasoning: This sentence is a repetition of a previous statement and does not add any new information or context.
+  [ID: e1d038a8-615f-40b7-97f7-c3190092f9b0] Reasoning: This sentence is a citation of case law that discusses the implications of a substantial portion of the public being affected, providing relevant legal context.
+  [ID: d5afb0bb-30e8-4dce-b5d7-d8d44ee20ac4] Reasoning: This sentence reiterates a previous statement about the invasion of privacy affecting a substantial portion of the public, providing no new information.
+  [ID: fbb91f1e-5695-4ee8-9800-6892836a4a5c] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public, providing relevant context for legal interpretations of deceptive practices.
+  [ID: 4c0ebbe2-7ca4-46a8-8d37-e01d6f582bb1] Reasoning: This sentence discusses the standard for proving deceptive acts affecting a substantial portion of the public, providing relevant legal context.
+  [ID: 9ca5862a-64a4-4699-98f8-d8707055b700] Reasoning: This sentence discusses a different test applying to deceptive acts affecting a substantial portion of the public, providing relevant legal context.
+  [ID: 1bfaa2d6-4a7a-4269-8575-458dff3495db] Reasoning: This sentence discusses the requirement to show that an act had the capacity to deceive a substantial portion of the public, providing relevant legal context.
+  [ID: 354675c8-dc29-4b25-aa1f-adf902b06c27] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public in relation to a statement, providing relevant legal context.
+  [ID: 170c59d0-9f6a-4d34-a5f0-680a5b2f2478] Reasoning: This sentence discusses the capacity to deceive a substantial portion of the public in the context of falsely marked machines, but does not provide additional interpretive context or application beyond the phrase itself.
+  [ID: 7e3dbbf8-7323-4ad8-9ce0-fcee797724ca] Reasoning: The Ninth Circuit's ruling highlights that a scheme targeting a select audience lacks the capacity to deceive a substantial portion of the public, providing a specific legal context but not significantly expanding on the interpretive value of the phrase.
+  [ID: 66b00ce3-b298-4740-82da-a2a7c03287ff] Reasoning: This sentence reiterates the concept of capacity to deceive a substantial portion of the public in a legal context but does not add new interpretive insights or applications.
+  [ID: 6d85e2b3-e4eb-4189-97b3-fdad2abf00d8] Reasoning: This sentence is a direct quote from the statute and does not provide any interpretive context or application.
+  [ID: e8d011ee-02ff-494c-ae26-267a369c5003] Reasoning: This sentence raises a question about the application of a legal principle in a specific case, but it does not clarify or expand on the meaning of 'substantial portion of the public'.
+  [ID: 75c468a5-9f8f-4c7e-b0e4-6973c6a727bd] Reasoning: This statement asserts that a particular statement is deceptive to a substantial portion of the public but lacks further context or analysis.
+  [ID: d8fa56b2-e2ec-4841-b89a-bed1a032671d] Reasoning: This sentence discusses whether Microsoft’s conduct had the capacity to deceive a substantial portion of the public, but does not provide additional interpretive context.
+  [ID: a79ae685-6481-4574-b9cf-e76383c82681] Reasoning: This sentence provides a detailed context regarding consumer preferences and misleading practices, which adds interpretive depth to the phrase 'substantial portion of the public'.
+  [ID: 83874b2e-aa8f-428c-8b5a-c3f9282ed476] Reasoning: This sentence questions the evidence supporting the Commission's finding regarding the deception of a substantial portion of the public, but does not provide new insights into the term itself.
+  [ID: 888c9b8e-18b6-4e26-9a8e-156dbea63dfb] Reasoning: This sentence explains how the court assesses whether an act is deceptive based on its capacity to deceive a substantial portion of the public, providing useful interpretive context.
+  [ID: 6f51c020-6f35-44d6-8c92-ada65ce82768] Reasoning: This sentence rejects a claim regarding the capacity to deceive a substantial portion of the public but does not provide further interpretive context.
+  [ID: 4206e587-bbc8-464a-be20-83f96b2e61f5] Reasoning: This sentence states that an act need only have the capacity to deceive a substantial portion of the public, but does not elaborate on its application or implications.
+  [ID: 489ca7b6-2c95-4d3f-9890-7f8a4c3cd934] Reasoning: This sentence discusses the capacity of a surcharge to deceive a substantial portion of the public, providing a specific example that adds context to the phrase.
+  [ID: b6c9c0f8-c29b-48e8-900b-6e500cbff6bd] Reasoning: This sentence is a direct quote from a case and does not provide any new interpretive context or application.
+  [ID: 2ad33c63-325c-480f-9481-7b00cdb3e7ce] Reasoning: This sentence discusses the benefits to a substantial portion of the public from a tortious activity, but does not clarify or expand on the meaning of 'substantial portion of the public'.
+  [ID: 6e5badd4-b15c-475c-b4cd-e298715c30f6] Reasoning: This sentence states that a substantial portion of the public was misled but does not provide further context or analysis.
+  [ID: 9677dfdc-8e48-452f-abc4-06ce099fab21] Reasoning: This sentence is a direct quote from the statute and does not provide any interpretive context or application.
+  [ID: 270ab546-1718-4f4a-afa9-8a9e2f2f2fc1] Reasoning: This sentence explains how the Commission interprets the term 'effectively available to a substantial portion of the public', providing relevant context and factors for interpretation.
+  [ID: 79017ddf-d37e-4ac0-908f-07095ba0943f] Reasoning: This sentence clarifies that a service will not be considered available to a substantial portion of the public if it is restricted, providing important interpretive guidance.
+  [ID: 6e8db6b7-e2ca-4432-a683-65a17dee8724] Reasoning: This sentence refers to the Commission's rulemaking and interpretation of the term 'commercial mobile service', but does not provide new insights into the phrase 'substantial portion of the public'.
+  [ID: 6bf7d818-384a-4b45-914c-714258d8cd0d] Reasoning: This sentence compares two interpretations of similar phrases but does not clarify or expand on the meaning of 'substantial portion of the public'.
+  [ID: 2a4624aa-ebd6-4a8b-8c08-82d16485a6cc] Reasoning: This sentence discusses wholesale carriers and their relation to the phrase 'effectively available to a substantial portion of the public', providing relevant context for interpretation.
+  [ID: 16e42253-6608-4382-bf87-deb28c6637cc] Reasoning: This sentence discusses public funds but does not relate to the phrase 'substantial portion of the public' in a relevant legal context.
+  [ID: d2ef27bf-9ae5-489f-bbf4-e59bfc98035e] Reasoning: This sentence discusses privacy concerns but does not provide relevant context or application regarding the phrase 'substantial portion of the public'.
+  [ID: b7da60b5-081e-46b5-9a9f-d358aed5602a] Reasoning: This sentence discusses advertising and its effectiveness in reaching a substantial portion of the public, providing relevant context for interpretation.
 Method: probabilities | Term: substantial portion of the public
-NDCG@10: 0.44986841294309937
-NDCG@20: 0.5622278635961685
-NDCG@40: 0.6741369954943807
-NDCG@100: 0.8051322626791813
+NDCG@10: 0.605907257802512
+NDCG@20: 0.6926619628819989
+NDCG@40: 0.7810717126238016
+NDCG@100: 0.8804427179341726
 
 ----------------------------------------
 STDERR:
@@ -133,16 +405,18 @@ wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netr
 wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
 
 GPT batches:   0%|          | 0/15 [00:00<?, ?batch/s]
-GPT batches:   7%|▋         | 1/15 [00:15<03:30, 15.06s/batch]
-GPT batches:  13%|█▎        | 2/15 [00:18<01:44,  8.07s/batch]
-GPT batches:  20%|██        | 3/15 [00:20<01:04,  5.34s/batch]
-GPT batches:  27%|██▋       | 4/15 [00:21<00:40,  3.67s/batch]
-GPT batches:  33%|███▎      | 5/15 [00:22<00:26,  2.61s/batch]
-GPT batches:  47%|████▋     | 7/15 [00:23<00:13,  1.65s/batch]
-GPT batches:  60%|██████    | 9/15 [00:23<00:05,  1.01batch/s]
-GPT batches:  67%|██████▋   | 10/15 [00:23<00:03,  1.26batch/s]
-GPT batches:  80%|████████  | 12/15 [00:25<00:02,  1.25batch/s]
-GPT batches:  87%|████████▋ | 13/15 [00:28<00:02,  1.31s/batch]
-GPT batches:  93%|█████████▎| 14/15 [00:28<00:01,  1.07s/batch]
-GPT batches: 100%|██████████| 15/15 [00:29<00:00,  1.02batch/s]
-GPT batches: 100%|██████████| 15/15 [00:29<00:00,  1.98s/batch]
+GPT batches:   7%|▋         | 1/15 [00:33<07:42, 33.06s/batch]
+GPT batches:  13%|█▎        | 2/15 [00:35<03:14, 14.99s/batch]
+GPT batches:  20%|██        | 3/15 [00:38<01:53,  9.50s/batch]
+GPT batches:  27%|██▋       | 4/15 [00:43<01:27,  7.92s/batch]
+GPT batches:  33%|███▎      | 5/15 [00:45<00:55,  5.57s/batch]
+GPT batches:  40%|████      | 6/15 [00:47<00:41,  4.59s/batch]
+GPT batches:  47%|████▋     | 7/15 [00:49<00:27,  3.46s/batch]
+GPT batches:  53%|█████▎    | 8/15 [00:50<00:20,  2.89s/batch]
+GPT batches:  60%|██████    | 9/15 [00:50<00:12,  2.03s/batch]
+GPT batches:  67%|██████▋   | 10/15 [00:51<00:07,  1.50s/batch]
+GPT batches:  80%|████████  | 12/15 [00:51<00:02,  1.14batch/s]
+GPT batches:  87%|████████▋ | 13/15 [00:51<00:01,  1.34batch/s]
+GPT batches:  93%|█████████▎| 14/15 [00:52<00:00,  1.68batch/s]
+GPT batches: 100%|██████████| 15/15 [00:52<00:00,  1.47batch/s]
+GPT batches: 100%|██████████| 15/15 [00:52<00:00,  3.53s/batch]

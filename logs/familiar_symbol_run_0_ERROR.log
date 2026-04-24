@@ -1,6 +1,127 @@
-Command: /Library/Developer/CommandLineTools/usr/bin/python3 rank.py --term familiar symbol --type few_shot --sentences sources/familiar_symbol/familiar_symbol-sentence.json --provisions sources/provisions.json --verbose false
+Command: /opt/anaconda3/bin/python rank.py --term familiar symbol --type probabilities --sentences sources/familiar_symbol/familiar_symbol-sentence.json --provisions sources/provisions.json --verbose false --prompt system_prompts/zero_shot_previous_best.txt
 Error Code: 1
+You are an expert legal text annotator. Your task is to evaluate each sentence for its usefulness in supporting legal argumentation about the meaning of a statutory or regulatory term (“the phrase of interest”).
+
+You will be given:
+
+The phrase of interest
+
+The raw statutory or regulatory provision in which that phrase appears (“the statute”)
+
+A list of candidate sentences, each with a sentence_id
+
+Your labeling must take into account both the phrase of interest and the statute. If a candidate sentence merely duplicates, quotes, or paraphrases the statute without adding any interpretive meaning, it MUST be labeled "no value".
+
+Assign exactly ONE label per sentence from:
+{"no value", "potential value", "certain value", "high value"}
+
+Return ONLY valid JSON in the following exact format:
+[
+{"sentence_id": "...", "label": "..."},
+{"sentence_id": "...", "label": "..."}
+]
+
+Do not include explanations, comments, or additional keys. Return only the JSON array.
+
+=====================================
+GUIDELINES FOR CLASSIFYING SENTENCES
+
+A sentence has value ONLY if it provides information useful for interpreting the meaning of the phrase of interest, beyond what is already stated in the statute.
+
+STEP 1 — New information?
+If the sentence merely repeats or paraphrases the statutory text, or is only a heading, citation, or boilerplate → NO VALUE.
+If the sentence copies any part of the statute verbatim (or nearly verbatim) → NO VALUE.
+
+STEP 2 — Different meaning?
+If the sentence uses the phrase with a different meaning:
+• If unrelated → NO VALUE.
+• If related → POTENTIAL VALUE or CERTAIN VALUE depending on strength.
+Then stop.
+
+STEP 3 — Explicit elaboration?
+Explicit elaboration includes:
+• Definitions
+• Explanations
+• Positive examples
+• Negative examples
+• Subsumption (“X is a type of Y”)
+• Contrasts
+• Feature assignment (properties the term implies)
+• Feature exclusion (properties the term negates)
+
+If explicit:
+• If written by an interested party or witness → CERTAIN VALUE
+• If written by a court, judge, legislature, agency, or other neutral authority → HIGH VALUE
+Then stop.
+
+STEP 4 — Implicit elaboration?
+These are clues about meaning that are not explicitly definitional but still informative:
+• Implicit definitions
+• Factual scenarios that imply boundaries of the term
+• Contrasts or comparisons
+• Context revealing the term’s function or purpose
+
+If none → POTENTIAL VALUE.
+
+If implicit elaboration exists:
+• If from an interested person → POTENTIAL VALUE
+• If from a neutral authority → CERTAIN VALUE
+Then stop.
+
+NOTES:
+
+Do NOT label sentences as valuable if they add no interpretive information.
+
+Do NOT infer value from topical similarity alone.
+
+Always prefer lower labels when uncertain.
+
+### OUTPUT FORMAT (FOR PROBABILITIES MODE)
+You must return a JSON array of objects. Each object must include a "reasoning" field (Chain-of-Thought) and a "probs" field with probabilities for: "no value", "potential value", "certain value", "high value".
+
+ERROR processing GPT probabilities: 'probs'
+Response: [
+{"sentence_id": "5a131dc8-eaca-4867-af1a-d589cb9afe7f", "label": "certain value"},
+{"sentence_id": "3c38e997-c5e4-4785-9fe8-ddce55407d20", "label": "potential value"},
+{"sentence_id": "f22f5d2c-19b2-4020-86c9-55067e5cdc6a", "label": "potential value"},
+{"sentence_id": "e2d2255c-8e1c-4743-bcbf-8adfaf551424", "label": "high value"},
+{"sentence_id": "54fc4573-891e-44cd-b887-690883a4293b", "label": "high value"},
+{"sentence_id": "b00e6f58-e7be-4aca-b651-9101348c01d7", "label": "no value"},
+{"sentence_id": "e7074d44-8b9e-406e-8702-a371e526a092", "label": "certain value"},
+{"sentence_id": "acffb5de-7ec8-4338-98a8-2aa5e9590fdb", "label": "potential value"},
+{"sentence_id": "f49daf8b-5d39-49fd-a310-97f1057b1ecd", "label": "high value"},
+{"sentence_id": "883cb89f-5a9b-4443-8ab5-8c405617fea2", "label": "potential value"},
+{"sentence_id": "ff6071cc-f8c8-4d21-b74f-a3307eab997c", "label": "potential value"},
+{"sentence_id": "1e168e52-ea8e-429c-a589-47b021e461c2", "label": "potential value"},
+{"sentence_id": "e94d22d5-937d-4940-9f79-1240786947f0", "label": "certain value"},
+{"sentence_id": "bdabe747-dad9-45e9-8c66-767ad4c13a0a", "label": "no value"}
+]
+wandb: Appending key for api.wandb.ai to your netrc file: /Users/alvinwang/.netrc
+wandb: Currently logged in as: alvinw2 (alvinw2-carnegie-mellon-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+
+GPT batches:   0%|          | 0/3 [00:00<?, ?batch/s]
+GPT batches:   0%|          | 0/3 [00:09<?, ?batch/s]
 Traceback (most recent call last):
-  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 5, in <module>
-    from openai import OpenAI, AsyncOpenAI
-ModuleNotFoundError: No module named 'openai'
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 1123, in <module>
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 1009, in main
+    df_merged = df.merge(df_gpt, on="sentence_id", how="left")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 301, in gpt_label_batch
+    batch_df = await coro
+               ^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/asyncio/tasks.py", line 631, in _wait_for_one
+    return f.result()  # May raise f.exception().
+           ^^^^^^^^^^
+  File "/Users/alvinwang/cs/Retrieval/Retrieval/rank.py", line 265, in _gpt_probabilities_single_batch
+    probs = item["probs"]
+            ~~~~^^^^^^^^^
+KeyError: 'probs'
