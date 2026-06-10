@@ -1,0 +1,31 @@
+[34m[1mwandb[0m: Detected [openai] in use.
+[34m[1mwandb[0m: Use W&B Weave for improved LLM call tracing. Install Weave with `pip install weave` then add `import weave` to the top of your script.
+[34m[1mwandb[0m: For more information, check out the docs at: https://weave-docs.wandb.ai/
+Traceback (most recent call last):
+  File "/Users/alvinwang/cs/Retrieval/src/rank.py", line 338, in <module>
+    main()
+  File "/Users/alvinwang/cs/Retrieval/src/rank.py", line 334, in main
+    log_to_wandb(args.term, args.type, df_st_sorted, ndcg_scores, label_counts, confusion)
+  File "/Users/alvinwang/cs/Retrieval/src/rank.py", line 203, in log_to_wandb
+    confusion_table.add_data(
+  File "/opt/anaconda3/envs/ret/lib/python3.10/site-packages/wandb/sdk/data_types/table_decorators.py", line 42, in wrapper
+    return method(self, *args, **kwargs)
+  File "/opt/anaconda3/envs/ret/lib/python3.10/site-packages/wandb/sdk/data_types/table_decorators.py", line 58, in wrapper
+    res = method(self, *args, **kwargs)
+  File "/opt/anaconda3/envs/ret/lib/python3.10/site-packages/wandb/sdk/data_types/table.py", line 520, in add_data
+    raise ValueError(
+ValueError: This table expects 3 columns: ['predicted_label', 'true_score', 'count'], found 5
+Traceback (most recent call last):
+  File "/Users/alvinwang/cs/Retrieval/src/rank.py", line 338, in <module>
+    main()
+  File "/Users/alvinwang/cs/Retrieval/src/rank.py", line 334, in main
+    log_to_wandb(args.term, args.type, df_st_sorted, ndcg_scores, label_counts, confusion)
+  File "/Users/alvinwang/cs/Retrieval/src/rank.py", line 203, in log_to_wandb
+    confusion_table.add_data(
+  File "/opt/anaconda3/envs/ret/lib/python3.10/site-packages/wandb/sdk/data_types/table_decorators.py", line 42, in wrapper
+    return method(self, *args, **kwargs)
+  File "/opt/anaconda3/envs/ret/lib/python3.10/site-packages/wandb/sdk/data_types/table_decorators.py", line 58, in wrapper
+    res = method(self, *args, **kwargs)
+  File "/opt/anaconda3/envs/ret/lib/python3.10/site-packages/wandb/sdk/data_types/table.py", line 520, in add_data
+    raise ValueError(
+ValueError: This table expects 3 columns: ['predicted_label', 'true_score', 'count'], found 5

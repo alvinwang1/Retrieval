@@ -1,0 +1,85 @@
+_wandb:
+    value:
+        cli_version: 0.23.0
+        e:
+            9zgn8xjnpgv3uloy1ddt6crxrhpbse2d:
+                apple:
+                    ecpuCores: 4
+                    gpuCores: 7
+                    memoryGb: 8
+                    name: Apple M1
+                    pcpuCores: 4
+                    ramTotalBytes: "8589934592"
+                    swapTotalBytes: "4294967296"
+                args:
+                    - --type
+                    - zero_shot
+                codePath: rank.py
+                codePathLocal: rank.py
+                cpu_count: 8
+                cpu_count_logical: 8
+                disk:
+                    /:
+                        total: "200000000000"
+                        used: "186049142784"
+                email: alvinw2@andrew.cmu.edu
+                executable: /opt/anaconda3/envs/ret/bin/python
+                git:
+                    commit: e0f24833eddfb4e77bad5be80e7d953fd01227f3
+                    remote: git@github.com:alvinwang1/Retrieval.git
+                host: alvins-air.wifi.local.cmu.edu
+                memory:
+                    total: "8589934592"
+                os: macOS-13.5-arm64-arm-64bit
+                program: /Users/alvinwang/cs/Retrieval/src/rank.py
+                python: CPython 3.10.19
+                root: /Users/alvinwang/cs/Retrieval/src
+                startedAt: "2025-12-02T14:38:06.529639Z"
+                writerId: 9zgn8xjnpgv3uloy1ddt6crxrhpbse2d
+        m: []
+        python_version: 3.10.19
+        t:
+            "1":
+                - 1
+                - 5
+                - 11
+                - 49
+                - 53
+                - 75
+                - 95
+            "2":
+                - 1
+                - 5
+                - 11
+                - 49
+                - 53
+                - 75
+                - 95
+            "3":
+                - 2
+                - 16
+            "4": 3.10.19
+            "5": 0.23.0
+            "6": 4.57.1
+            "12": 0.23.0
+            "13": darwin-arm64
+confusion:
+    value: "label_score      0.0  1.0  2.0  3.0\ngpt_label_str                      \ncertain value    257  278   73  131\nhigh value       186  117    1    6\nno value         235   43    8   14\npotential value   22   73   35   41"
+label_counts:
+    value:
+        certain value: 739
+        high value: 310
+        no value: 300
+        potential value: 171
+label_map:
+    value:
+        certain value: 2
+        high value: 3
+        no value: 0
+        potential value: 1
+num_sentences:
+    value: 1520
+term:
+    value: independent economic value
+type:
+    value: zero_shot

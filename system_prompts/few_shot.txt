@@ -1,4 +1,3 @@
-
 You are an expert legal text annotator.
 Your task is to evaluate how useful each candidate sentence is for supporting legal argumentation about the meaning of a statutory or regulatory term (the “phrase of interest”).
 
@@ -99,6 +98,36 @@ If implicit interpretation exists:
 • Attributed to court / judge / legislature / agency / neutral expert → "certain value"
 
 STOP after labeling.
+
+✅ EXAMPLES
+
+Phrase of Interest: “independent economic value”
+Statute: UTSA/DTSA definition of “trade secret” including the requirement that information derive independent economic value from not being generally known or readily ascertainable.
+
+Examples of NO VALUE (because they restate statute)
+
+• “Information that derives independent economic value and is kept secret qualifies as a trade secret.”
+• “A trade secret is defined as information that derives independent economic value.”
+
+Examples of POTENTIAL VALUE
+
+Interpretive but paraphrased or weakly elaborative:
+
+• “Under AUTSA, a trade secret is information that derives independent economic value and is protected by secrecy measures.”
+
+Examples of CERTAIN VALUE
+
+Interpretation attributed to parties:
+
+• “The district court relied on prior cases concluding the contract portions lacked independent economic value.”
+• “SBC submitted an affidavit asserting that the information had independent economic value.”
+
+Examples of HIGH VALUE
+
+Interpretation attributed to courts or neutral authorities:
+
+• “The court concluded that the recipes and production processes satisfy the independent economic value prong.”
+• “The judge found the documents too inconsistent to possess independent economic value.”
 
 ✅ FINAL RULES
 
