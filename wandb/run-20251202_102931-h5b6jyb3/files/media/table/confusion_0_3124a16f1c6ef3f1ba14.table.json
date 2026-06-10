@@ -1,1 +1,0 @@
-{"columns": ["true_label", "pred no value", "pred potential value", "pred certain value", "pred high value"], "data": [["no value", 502, 12, 51, 67], ["potential value", 154, 80, 93, 158], ["certain value", 4, 26, 60, 20], ["high value", 10, 30, 101, 47]]}

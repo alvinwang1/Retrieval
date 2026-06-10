@@ -1,2 +1,22 @@
 *.json
+modernbert-legal*
+modernbert-legal*/
+**/checkpoint-*/
+*.safetensors
+*.pt
+*.pth
+*.bin
 
+# ===== wandb =====
+wandb/
+
+# ===== logs =====
+logs/
+*.log
+
+# ===== macOS =====
+.DS_Store
+
+# ===== temp / outputs =====
+*.txt
+Untitled

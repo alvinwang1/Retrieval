@@ -1,1 +1,0 @@
-{"columns": ["predicted_label", "true_no_value", "true_potential_value", "true_certain_value", "true_high_value"], "data": [["certain value", 257, 278, 73, 131], ["high value", 186, 117, 1, 6], ["no value", 235, 43, 8, 14], ["potential value", 22, 73, 35, 41]]}
